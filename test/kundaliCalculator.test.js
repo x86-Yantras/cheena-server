@@ -4,6 +4,7 @@ import {
   rashiFromLongitude,
   nakshatraFromLongitude,
   houseFromRashi,
+  navamsaRashiIndex,
 } from '../src/kundaliCalculator.js';
 
 describe('rashiFromLongitude', () => {
@@ -28,6 +29,24 @@ describe('houseFromRashi', () => {
     expect(houseFromRashi(3, 3)).toBe(1);
     expect(houseFromRashi(4, 3)).toBe(2);
     expect(houseFromRashi(2, 3)).toBe(12);
+  });
+});
+
+describe('navamsaRashiIndex', () => {
+  it('maps 0 degrees to Mesha (navamsha index 0)', () => {
+    expect(navamsaRashiIndex(0)).toBe(0);
+  });
+
+  it('maps just under 30 degrees to Dhanu (the 9th navamsha of a movable sign)', () => {
+    expect(navamsaRashiIndex(29.9999)).toBe(8);
+  });
+
+  it('maps exactly 30 degrees to Makara (fixed-sign navamsha starts at the 9th sign)', () => {
+    expect(navamsaRashiIndex(30)).toBe(9);
+  });
+
+  it('maps just under 360 degrees back to Meena (wraps within the last sign)', () => {
+    expect(navamsaRashiIndex(359.9999)).toBe(11);
   });
 });
 

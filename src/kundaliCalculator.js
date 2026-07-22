@@ -10,6 +10,10 @@ function rashiFromLongitude(longitude) {
   return { rashiIndex, rashiName: RASHI_NAMES[rashiIndex], degreeInRashi };
 }
 
+function navamsaRashiIndex(longitude) {
+  return Math.floor(longitude / (30 / 9)) % 12;
+}
+
 function nakshatraFromLongitude(longitude) {
   const nakshatraIndex = Math.floor(longitude / NAKSHATRA_SPAN) % 27;
   const positionInNakshatra = longitude % NAKSHATRA_SPAN;
@@ -58,4 +62,4 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
   };
 }
 
-export { calculateKundali, rashiFromLongitude, nakshatraFromLongitude, houseFromRashi };
+export { calculateKundali, rashiFromLongitude, nakshatraFromLongitude, houseFromRashi, navamsaRashiIndex };
