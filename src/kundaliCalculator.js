@@ -1,4 +1,5 @@
-import { getSwe, computeJulianDay, computeAscendantLongitude, computePlanetLongitude } from './swissephService.js';
+import { getSwe, computeJulianDay, computeAscendantLongitude, computePlanetLongitude, resolveUtc } from './swissephService.js';
+import { computeVimshottariDasha } from './dashaCalculator.js';
 import { RASHI_NAMES, NAKSHATRA_NAMES, PLANET_DEFS } from './astro-data.js';
 
 const NAKSHATRA_SPAN = 360 / 27;
@@ -63,6 +64,10 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
     });
   }
 
+  const moon = planets.find((p) => p.key === 'MOON');
+  const birthUtcMs = resolveUtc(date, time, latitude, longitude, timezone).toMillis();
+  const dasha = computeVimshottariDasha(moon.longitude, birthUtcMs);
+
   return {
     julianDay: jd,
     ascendant: {
@@ -74,6 +79,7 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
       },
     },
     planets,
+    dasha,
   };
 }
 

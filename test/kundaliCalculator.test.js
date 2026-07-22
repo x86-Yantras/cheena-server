@@ -139,4 +139,12 @@ describe('calculateKundali (real-world regression case)', () => {
     expect(rahu.longitude).toBeGreaterThan(120);
     expect(rahu.rashiName).toBe('Simha');
   }, 20000);
+
+  it('includes the Vimshottari dasha timeline starting with the Mars mahadasha', async () => {
+    const result = await calculateKundali(input);
+    expect(result.dasha.mahadashas).toHaveLength(9);
+    expect(result.dasha.mahadashas[0].lord).toBe('MARS');
+    expect(result.dasha.balanceYears).toBeCloseTo(1.9722, 3);
+    expect(result.dasha.mahadashas[0].subPeriods[0].subPeriods).toHaveLength(9);
+  }, 20000);
 });
