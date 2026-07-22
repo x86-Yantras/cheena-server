@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import kundaliRouter from './routes/kundali.js';
 
 function createApp() {
   const app = express();
@@ -8,6 +9,7 @@ function createApp() {
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
   });
+  app.use('/api/kundali', kundaliRouter);
   return app;
 }
 
