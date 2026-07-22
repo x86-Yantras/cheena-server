@@ -100,16 +100,16 @@ describe('calculateKundali (real-world regression case)', () => {
   };
 
   const expected = {
-    ascendant: { longitude: 276.51 },
-    SUN: { longitude: 256.39, house: 12 },
-    MOON: { longitude: 62.91, house: 6 },
-    MARS: { longitude: 174.60, house: 9 },
-    MERCURY: { longitude: 237.60, house: 11 },
-    JUPITER: { longitude: 328.12, house: 2 },
-    VENUS: { longitude: 271.69, house: 1 },
-    SATURN: { longitude: 2.93, house: 4 },
-    RAHU: { longitude: 120.55, house: 8 },
-    KETU: { longitude: 300.55, house: 2 },
+    ascendant: { longitude: 276.51, navamsa: { rashiIndex: 10, rashiName: 'Kumbha' } },
+    SUN: { longitude: 256.39, house: 12, navamsa: { rashiIndex: 4, rashiName: 'Simha', house: 7 } },
+    MOON: { longitude: 62.91, house: 6, navamsa: { rashiIndex: 6, rashiName: 'Tula', house: 9 } },
+    MARS: { longitude: 174.60, house: 9, navamsa: { rashiIndex: 4, rashiName: 'Simha', house: 7 } },
+    MERCURY: { longitude: 237.60, house: 11, navamsa: { rashiIndex: 11, rashiName: 'Meena', house: 2 } },
+    JUPITER: { longitude: 328.12, house: 2, navamsa: { rashiIndex: 2, rashiName: 'Mithuna', house: 5 } },
+    VENUS: { longitude: 271.69, house: 1, navamsa: { rashiIndex: 9, rashiName: 'Makara', house: 12 } },
+    SATURN: { longitude: 2.93, house: 4, navamsa: { rashiIndex: 0, rashiName: 'Mesha', house: 3 } },
+    RAHU: { longitude: 120.55, house: 8, navamsa: { rashiIndex: 0, rashiName: 'Mesha', house: 3 } },
+    KETU: { longitude: 300.55, house: 2, navamsa: { rashiIndex: 6, rashiName: 'Tula', house: 9 } },
   };
 
   it('matches independently-verified sidereal longitudes and whole-sign houses', async () => {
@@ -117,11 +117,16 @@ describe('calculateKundali (real-world regression case)', () => {
 
     expect(result.julianDay).toBeCloseTo(2451179.6215278, 6);
     expect(result.ascendant.longitude).toBeCloseTo(expected.ascendant.longitude, 1);
+    expect(result.ascendant.navamsa.rashiIndex).toBe(expected.ascendant.navamsa.rashiIndex);
+    expect(result.ascendant.navamsa.rashiName).toBe(expected.ascendant.navamsa.rashiName);
 
     for (const planet of result.planets) {
       const exp = expected[planet.key];
       expect(planet.longitude, `${planet.key} longitude`).toBeCloseTo(exp.longitude, 1);
       expect(planet.house, `${planet.key} house`).toBe(exp.house);
+      expect(planet.navamsa.rashiIndex, `${planet.key} navamsa rashiIndex`).toBe(exp.navamsa.rashiIndex);
+      expect(planet.navamsa.rashiName, `${planet.key} navamsa rashiName`).toBe(exp.navamsa.rashiName);
+      expect(planet.navamsa.house, `${planet.key} navamsa house`).toBe(exp.navamsa.house);
     }
   }, 20000);
 

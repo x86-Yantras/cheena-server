@@ -31,6 +31,7 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
 
   const ascendantLongitude = await computeAscendantLongitude(jd, latitude, longitude);
   const ascendantRashi = rashiFromLongitude(ascendantLongitude);
+  const ascendantNavamsaRashiIndex = navamsaRashiIndex(ascendantLongitude);
 
   const planets = [];
   for (const planetDef of PLANET_DEFS) {
@@ -44,6 +45,8 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
     const rashi = rashiFromLongitude(planetLongitude);
     const nakshatra = nakshatraFromLongitude(planetLongitude);
     const house = houseFromRashi(rashi.rashiIndex, ascendantRashi.rashiIndex);
+    const navamsaIndex = navamsaRashiIndex(planetLongitude);
+    const navamsaHouse = houseFromRashi(navamsaIndex, ascendantNavamsaRashiIndex);
     planets.push({
       key: planetDef.key,
       name: planetDef.name,
@@ -52,12 +55,24 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
       ...rashi,
       ...nakshatra,
       house,
+      navamsa: {
+        rashiIndex: navamsaIndex,
+        rashiName: RASHI_NAMES[navamsaIndex],
+        house: navamsaHouse,
+      },
     });
   }
 
   return {
     julianDay: jd,
-    ascendant: { longitude: ascendantLongitude, ...ascendantRashi },
+    ascendant: {
+      longitude: ascendantLongitude,
+      ...ascendantRashi,
+      navamsa: {
+        rashiIndex: ascendantNavamsaRashiIndex,
+        rashiName: RASHI_NAMES[ascendantNavamsaRashiIndex],
+      },
+    },
     planets,
   };
 }
