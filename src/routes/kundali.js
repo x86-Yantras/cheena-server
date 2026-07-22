@@ -1,11 +1,12 @@
 import { Router } from 'express';
+import { IANAZone } from 'luxon';
 import { calculateKundali } from '../kundaliCalculator.js';
 
 const router = Router();
 
 function validateBody(body) {
   const errors = [];
-  const { date, time, latitude, longitude } = body;
+  const { date, time, latitude, longitude, timezone } = body;
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     errors.push('date must be in YYYY-MM-DD format');
@@ -18,6 +19,11 @@ function validateBody(body) {
   }
   if (typeof longitude !== 'number' || longitude < -180 || longitude > 180) {
     errors.push('longitude must be a number between -180 and 180');
+  }
+  if (timezone !== undefined && timezone !== null && timezone !== '') {
+    if (typeof timezone !== 'string' || !IANAZone.isValidZone(timezone)) {
+      errors.push('timezone must be a valid IANA timezone name (e.g. Asia/Kolkata)');
+    }
   }
   return errors;
 }

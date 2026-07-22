@@ -34,4 +34,21 @@ describe('POST /api/kundali', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toMatch(/time/i);
   });
+
+  it('accepts a valid IANA timezone override and returns 200', async () => {
+    const app = createApp();
+    const response = await request(app)
+      .post('/api/kundali')
+      .send({ ...validPayload, timezone: 'Asia/Kolkata' });
+    expect(response.status).toBe(200);
+  }, 20000);
+
+  it('returns 400 for an invalid timezone override', async () => {
+    const app = createApp();
+    const response = await request(app)
+      .post('/api/kundali')
+      .send({ ...validPayload, timezone: 'Not/AZone' });
+    expect(response.status).toBe(400);
+    expect(response.body.error).toMatch(/timezone/i);
+  });
 });

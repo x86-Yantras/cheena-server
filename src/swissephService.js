@@ -16,8 +16,8 @@ function getSwe() {
   return swePromise;
 }
 
-function resolveUtc(dateStr, timeStr, latitude, longitude) {
-  const zone = tzlookup(latitude, longitude);
+function resolveUtc(dateStr, timeStr, latitude, longitude, timezone) {
+  const zone = timezone || tzlookup(latitude, longitude);
   const [year, month, day] = dateStr.split('-').map(Number);
   const [hour, minute] = timeStr.split(':').map(Number);
   const local = DateTime.fromObject({ year, month, day, hour, minute, second: 0 }, { zone });
@@ -27,9 +27,9 @@ function resolveUtc(dateStr, timeStr, latitude, longitude) {
   return local.toUTC();
 }
 
-async function computeJulianDay(dateStr, timeStr, latitude, longitude) {
+async function computeJulianDay(dateStr, timeStr, latitude, longitude, timezone) {
   const swe = await getSwe();
-  const utc = resolveUtc(dateStr, timeStr, latitude, longitude);
+  const utc = resolveUtc(dateStr, timeStr, latitude, longitude, timezone);
   const hourDecimal = utc.hour + utc.minute / 60 + utc.second / 3600;
   return swe.julday(utc.year, utc.month, utc.day, hourDecimal);
 }

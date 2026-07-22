@@ -21,9 +21,9 @@ function houseFromRashi(rashiIndex, ascendantRashiIndex) {
   return ((rashiIndex - ascendantRashiIndex + 12) % 12) + 1;
 }
 
-async function calculateKundali({ date, time, latitude, longitude }) {
+async function calculateKundali({ date, time, latitude, longitude, timezone }) {
   const swe = await getSwe();
-  const jd = await computeJulianDay(date, time, latitude, longitude);
+  const jd = await computeJulianDay(date, time, latitude, longitude, timezone);
 
   const ascendantLongitude = await computeAscendantLongitude(jd, latitude, longitude);
   const ascendantRashi = rashiFromLongitude(ascendantLongitude);

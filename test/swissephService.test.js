@@ -23,4 +23,19 @@ describe('swissephService', () => {
     expect(first).toBeLessThan(360);
     expect(first).toBeCloseTo(second, 8);
   }, 15000);
+
+  it('uses an explicit timezone override instead of the GPS-derived zone when provided', async () => {
+    // New York in January is America/New_York (UTC-5, no DST). Overriding to UTC
+    // means the same local wall-clock time is interpreted 5 hours earlier in
+    // absolute terms, so the resulting Julian Day must differ by exactly 5/24.
+    const autoDetected = await computeJulianDay('2000-01-01', '12:00', 40.7128, -74.006);
+    const overridden = await computeJulianDay('2000-01-01', '12:00', 40.7128, -74.006, 'UTC');
+    expect(autoDetected - overridden).toBeCloseTo(5 / 24, 6);
+  }, 15000);
+
+  it('throws a clear error for an invalid timezone override', async () => {
+    await expect(
+      computeJulianDay('2000-01-01', '12:00', 40.7128, -74.006, 'Not/AZone'),
+    ).rejects.toThrow(/invalid/i);
+  }, 15000);
 });
