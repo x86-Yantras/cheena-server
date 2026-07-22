@@ -1,0 +1,22 @@
+{
+  "name": "kundali-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "cors": "2.8.6",
+    "express": "5.2.1",
+    "luxon": "3.7.2",
+    "swisseph-wasm": "0.1.0",
+    "tz-lookup": "6.1.25"
+  },
+  "devDependencies": {
+    "supertest": "7.2.2",
+    "vitest": "4.1.10"
+  }
+}
