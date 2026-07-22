@@ -22,7 +22,7 @@ const PLANET_DEFS = [
   { key: 'JUPITER', name: 'Jupiter', abbreviation: 'Ju', sweKey: 'SE_JUPITER' },
   { key: 'VENUS', name: 'Venus', abbreviation: 'Ve', sweKey: 'SE_VENUS' },
   { key: 'SATURN', name: 'Saturn', abbreviation: 'Sa', sweKey: 'SE_SATURN' },
-  { key: 'RAHU', name: 'Rahu', abbreviation: 'Ra', sweKey: 'SE_TRUE_NODE' },
+  { key: 'RAHU', name: 'Rahu', abbreviation: 'Ra', sweKey: 'SE_MEAN_NODE' },
   { key: 'KETU', name: 'Ketu', abbreviation: 'Ke', sweKey: null },
 ];
 

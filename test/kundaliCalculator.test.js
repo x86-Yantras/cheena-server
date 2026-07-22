@@ -66,3 +66,53 @@ describe('calculateKundali', () => {
     expect(first.planets[0].longitude).toBeCloseTo(second.planets[0].longitude, 8);
   }, 20000);
 });
+
+describe('calculateKundali (real-world regression case)', () => {
+  // 1999-01-01 08:40 local (Asia/Kathmandu, UTC+5:45), Baitadi, Nepal.
+  // Independently-verified sidereal (Lahiri) values, mean-node Rahu/Ketu.
+  // Tolerance is 0.02 degrees per graha, matching the precision of the
+  // independently-supplied reference values.
+  const input = {
+    date: '1999-01-01',
+    time: '08:40',
+    latitude: 29.588806,
+    longitude: 80.452122,
+    timezone: 'Asia/Kathmandu',
+  };
+
+  const expected = {
+    ascendant: { longitude: 276.51 },
+    SUN: { longitude: 256.39, house: 12 },
+    MOON: { longitude: 62.91, house: 6 },
+    MARS: { longitude: 174.60, house: 9 },
+    MERCURY: { longitude: 237.60, house: 11 },
+    JUPITER: { longitude: 328.12, house: 2 },
+    VENUS: { longitude: 271.69, house: 1 },
+    SATURN: { longitude: 2.93, house: 4 },
+    RAHU: { longitude: 120.55, house: 8 },
+    KETU: { longitude: 300.55, house: 2 },
+  };
+
+  it('matches independently-verified sidereal longitudes and whole-sign houses', async () => {
+    const result = await calculateKundali(input);
+
+    expect(result.julianDay).toBeCloseTo(2451179.6215278, 6);
+    expect(result.ascendant.longitude).toBeCloseTo(expected.ascendant.longitude, 1);
+
+    for (const planet of result.planets) {
+      const exp = expected[planet.key];
+      expect(planet.longitude, `${planet.key} longitude`).toBeCloseTo(exp.longitude, 1);
+      expect(planet.house, `${planet.key} house`).toBe(exp.house);
+    }
+  }, 20000);
+
+  it('uses the mean node for Rahu, not the true node', async () => {
+    const result = await calculateKundali(input);
+    const rahu = result.planets.find((p) => p.key === 'RAHU');
+    // The true node for this instant is ~119.0° (Karka); the mean node is
+    // ~120.55° (Simha). Asserting the mean-node value catches a regression
+    // back to SE_TRUE_NODE even if someone loosens the tolerance above.
+    expect(rahu.longitude).toBeGreaterThan(120);
+    expect(rahu.rashiName).toBe('Simha');
+  }, 20000);
+});
