@@ -32,4 +32,15 @@ describe('runMigrations', () => {
     const { rows } = await pool.query('SELECT COUNT(*) FROM schema_migrations');
     expect(Number(rows[0].count)).toBeGreaterThan(0);
   });
+
+  it('creates the matches table', async () => {
+    await runMigrations();
+    const pool = getPool();
+    const { rows } = await pool.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_name = 'matches'"
+    );
+    expect(rows).toHaveLength(1);
+    const migrations = await pool.query('SELECT name FROM schema_migrations ORDER BY name');
+    expect(migrations.rows.map((r) => r.name)).toContain('003_matches.sql');
+  });
 });
