@@ -1,5 +1,6 @@
 import { getSwe, computeJulianDay, computeAscendantLongitude, computePlanetLongitude, resolveUtc } from './swissephService.js';
 import { computeVimshottariDasha } from './dashaCalculator.js';
+import { computeYogaDosha } from './yogaCalculator.js';
 import { RASHI_NAMES, NAKSHATRA_NAMES, PLANET_DEFS } from './astro-data.js';
 
 const NAKSHATRA_SPAN = 360 / 27;
@@ -80,6 +81,7 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
     },
     planets,
     dasha,
+    yogaDosha: computeYogaDosha({ planets, ascendant: ascendantRashi }),
   };
 }
 
