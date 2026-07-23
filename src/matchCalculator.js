@@ -3,6 +3,7 @@ import {
   VASHYA_GROUP_BY_RASHI, VASHYA_MATRIX,
   YONI_BY_NAKSHATRA, YONI_ENEMY_PAIRS,
   GANA_BY_NAKSHATRA, GANA_MATRIX,
+  NADI_BY_NAKSHATRA,
   PLANET_FRIENDSHIP,
 } from './matchData.js';
 
@@ -109,8 +110,59 @@ function ganaKoot(groomNakshatraIndex, brideNakshatraIndex) {
   };
 }
 
+const BHAKOOT_DOSHA_DISTANCES = new Set([2, 5, 6, 8, 9, 12]);
+
+function bhakootKoot(groomRashiIndex, brideRashiIndex) {
+  const distance = ((brideRashiIndex - groomRashiIndex + 12) % 12) + 1;
+  if (!BHAKOOT_DOSHA_DISTANCES.has(distance)) {
+    return {
+      key: 'bhakoot', name: 'Bhakoot', points: 7, maxPoints: 7, exceptionApplied: false,
+      note: `Rashi distance ${distance}, no dosha`,
+    };
+  }
+  const groomLord = RASHI_LORDS[groomRashiIndex];
+  const brideLord = RASHI_LORDS[brideRashiIndex];
+  const sameOrFriendLords = groomLord === brideLord
+    || friendshipRelation(groomLord, brideLord) === 'friend'
+    || friendshipRelation(brideLord, groomLord) === 'friend';
+  if (sameOrFriendLords) {
+    return {
+      key: 'bhakoot', name: 'Bhakoot', points: 7, maxPoints: 7, exceptionApplied: true,
+      note: `Rashi distance ${distance} would cause dosha, cancelled by rashi-lord friendship`,
+    };
+  }
+  return {
+    key: 'bhakoot', name: 'Bhakoot', points: 0, maxPoints: 7, exceptionApplied: false,
+    note: `Rashi distance ${distance} causes dosha`,
+  };
+}
+
+function nadiKoot(groomNakshatraIndex, brideNakshatraIndex, groomRashiIndex, brideRashiIndex) {
+  const groomNadi = NADI_BY_NAKSHATRA[groomNakshatraIndex];
+  const brideNadi = NADI_BY_NAKSHATRA[brideNakshatraIndex];
+  if (groomNadi !== brideNadi) {
+    return {
+      key: 'nadi', name: 'Nadi', points: 8, maxPoints: 8, exceptionApplied: false,
+      note: `Groom: ${groomNadi}, Bride: ${brideNadi}`,
+    };
+  }
+  const sameNakshatraDifferentRashi = groomNakshatraIndex === brideNakshatraIndex
+    && groomRashiIndex !== brideRashiIndex;
+  const differentNakshatraDifferentRashiLord = groomNakshatraIndex !== brideNakshatraIndex
+    && groomRashiIndex !== brideRashiIndex
+    && RASHI_LORDS[groomRashiIndex] !== RASHI_LORDS[brideRashiIndex];
+  const exceptionApplied = sameNakshatraDifferentRashi || differentNakshatraDifferentRashiLord;
+  return {
+    key: 'nadi', name: 'Nadi', points: exceptionApplied ? 8 : 0, maxPoints: 8, exceptionApplied,
+    note: exceptionApplied
+      ? `Same Nadi (${groomNadi}) but cancelled by exception`
+      : `Same Nadi (${groomNadi}), dosha applies`,
+  };
+}
+
 export {
   friendshipRelation, combinedFriendshipScore,
   varnaKoot, vashyaKoot, grahaMaitriKoot,
   taraKoot, yoniKoot, ganaKoot,
+  bhakootKoot, nadiKoot,
 };

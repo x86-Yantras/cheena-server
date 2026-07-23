@@ -3,6 +3,7 @@ import {
   friendshipRelation, combinedFriendshipScore,
   varnaKoot, vashyaKoot, grahaMaitriKoot,
   taraKoot, yoniKoot, ganaKoot,
+  bhakootKoot, nadiKoot,
 } from '../src/matchCalculator.js';
 
 describe('friendshipRelation', () => {
@@ -137,5 +138,53 @@ describe('ganaKoot', () => {
     // nak 1 and nak 10 are both manushya
     const result = ganaKoot(1, 10);
     expect(result).toMatchObject({ key: 'gana', points: 6, maxPoints: 6, exceptionApplied: false });
+  });
+});
+
+describe('bhakootKoot', () => {
+  it('awards 7 points with no dosha when the rashi distance is not a dosha distance', () => {
+    // rashi 0 -> rashi 3: distance 4, not in the dosha set
+    const result = bhakootKoot(0, 3);
+    expect(result).toMatchObject({ key: 'bhakoot', points: 7, maxPoints: 7, exceptionApplied: false });
+  });
+
+  it('awards 0 points when the distance is a dosha distance and lords are unrelated', () => {
+    // rashi 0 (Mars) -> rashi 1 (Venus): distance 2, Mars/Venus are not friends or same
+    const result = bhakootKoot(0, 1);
+    expect(result).toMatchObject({ key: 'bhakoot', points: 0, maxPoints: 7, exceptionApplied: false });
+  });
+
+  it('cancels the dosha (exception) when the distance is a dosha distance but the lords match', () => {
+    // rashi 0 and rashi 7 are both ruled by Mars: distance 8, in the dosha set
+    const result = bhakootKoot(0, 7);
+    expect(result).toMatchObject({ key: 'bhakoot', points: 7, maxPoints: 7, exceptionApplied: true });
+  });
+});
+
+describe('nadiKoot', () => {
+  it('awards 8 points with no dosha when nadis differ', () => {
+    const result = nadiKoot(0, 1, 0, 1);
+    expect(result).toMatchObject({ key: 'nadi', points: 8, maxPoints: 8, exceptionApplied: false });
+  });
+
+  it('awards 0 points for same nadi, same nakshatra, same rashi', () => {
+    const result = nadiKoot(0, 0, 0, 0);
+    expect(result).toMatchObject({ key: 'nadi', points: 0, maxPoints: 8, exceptionApplied: false });
+  });
+
+  it('cancels the dosha for same nadi, same nakshatra, different rashi', () => {
+    const result = nadiKoot(0, 0, 0, 1);
+    expect(result).toMatchObject({ key: 'nadi', points: 8, maxPoints: 8, exceptionApplied: true });
+  });
+
+  it('cancels the dosha for same nadi, different nakshatra, different rashi lords', () => {
+    // nak 0 and nak 4 are both "aadi" nadi; rashi 0 (Mars) vs rashi 1 (Venus)
+    const result = nadiKoot(0, 4, 0, 1);
+    expect(result).toMatchObject({ key: 'nadi', points: 8, maxPoints: 8, exceptionApplied: true });
+  });
+
+  it('does not cancel the dosha for same nadi, different nakshatra, same rashi', () => {
+    const result = nadiKoot(0, 4, 0, 0);
+    expect(result).toMatchObject({ key: 'nadi', points: 0, maxPoints: 8, exceptionApplied: false });
   });
 });
