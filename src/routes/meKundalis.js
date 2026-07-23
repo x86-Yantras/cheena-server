@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
   try {
     const pool = getPool();
     const { rows } = await pool.query(
-      'SELECT id, label, date, time, latitude, longitude, timezone, result, created_at FROM kundalis WHERE user_id = $1 ORDER BY created_at DESC',
+      'SELECT id, label, name, date, time, latitude, longitude, timezone, result, created_at FROM kundalis WHERE user_id = $1 ORDER BY created_at DESC',
       [req.userId]
     );
     res.json(rows);
@@ -23,9 +23,13 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
-  const { label } = req.body;
+  const { label, name } = req.body;
   if (typeof label !== 'string' || label.trim() === '') {
     res.status(400).json({ error: 'label must be a non-empty string' });
+    return;
+  }
+  if (typeof name !== 'string' || name.trim() === '') {
+    res.status(400).json({ error: 'name must be a non-empty string' });
     return;
   }
   const errors = validateKundaliInput(req.body);
@@ -38,10 +42,10 @@ router.post('/', async (req, res) => {
     const result = await calculateKundali({ date, time, latitude, longitude, timezone });
     const pool = getPool();
     const { rows } = await pool.query(
-      `INSERT INTO kundalis (user_id, label, date, time, latitude, longitude, timezone, result)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, label, date, time, latitude, longitude, timezone, result, created_at`,
-      [req.userId, label.trim(), date, time, latitude, longitude, timezone ?? null, result]
+      `INSERT INTO kundalis (user_id, label, name, date, time, latitude, longitude, timezone, result)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, label, name, date, time, latitude, longitude, timezone, result, created_at`,
+      [req.userId, label.trim(), name.trim(), date, time, latitude, longitude, timezone ?? null, result]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -58,7 +62,7 @@ router.get('/:id', async (req, res) => {
   try {
     const pool = getPool();
     const { rows } = await pool.query(
-      'SELECT id, label, date, time, latitude, longitude, timezone, result, created_at FROM kundalis WHERE id = $1 AND user_id = $2',
+      'SELECT id, label, name, date, time, latitude, longitude, timezone, result, created_at FROM kundalis WHERE id = $1 AND user_id = $2',
       [req.params.id, req.userId]
     );
     if (rows.length === 0) {

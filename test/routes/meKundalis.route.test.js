@@ -8,6 +8,7 @@ const TEST_DB_URL =
   process.env.DATABASE_URL_TEST || 'postgres://postgres:postgres@localhost:5433/kundali_test';
 const validPayload = {
   label: 'Self',
+  name: 'Aarav Sharma',
   date: '1990-05-15',
   time: '14:30',
   latitude: 40.7128,
@@ -124,5 +125,31 @@ describe('/api/me/kundalis', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({ ...validPayload, label: '' });
     expect(response.status).toBe(400);
+  }, 20000);
+
+  it('returns 400 when name is missing', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'noname@example.com');
+    const response = await request(app)
+      .post('/api/me/kundalis')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ ...validPayload, name: '' });
+    expect(response.status).toBe(400);
+  }, 20000);
+
+  it('persists and returns the name field', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'name@example.com');
+    const createResponse = await request(app)
+      .post('/api/me/kundalis')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validPayload);
+    expect(createResponse.status).toBe(201);
+    expect(createResponse.body.name).toBe('Aarav Sharma');
+
+    const listResponse = await request(app)
+      .get('/api/me/kundalis')
+      .set('Authorization', `Bearer ${token}`);
+    expect(listResponse.body[0].name).toBe('Aarav Sharma');
   }, 20000);
 });
