@@ -5,7 +5,10 @@ import {
   GANA_BY_NAKSHATRA, GANA_MATRIX,
   NADI_BY_NAKSHATRA,
   PLANET_FRIENDSHIP,
+  MANGAL_DOSHA_HOUSES, MARS_OWN_RASHIS, MARS_EXALTED_RASHI,
+  DASHA_SANDHI_WINDOW_YEARS,
 } from './matchData.js';
+import { DASHA_SEQUENCE } from './dashaCalculator.js';
 
 function friendshipRelation(lordA, lordB) {
   if (lordA === lordB) return 'same';
@@ -160,9 +163,82 @@ function nadiKoot(groomNakshatraIndex, brideNakshatraIndex, groomRashiIndex, bri
   };
 }
 
+function computeManglik(planets) {
+  const mars = planets.find((p) => p.key === 'MARS');
+  const inDoshaHouse = MANGAL_DOSHA_HOUSES.includes(mars.house);
+  const isStrong = MARS_OWN_RASHIS.includes(mars.rashiIndex) || mars.rashiIndex === MARS_EXALTED_RASHI;
+  const cancelled = inDoshaHouse && isStrong;
+  return {
+    isManglik: inDoshaHouse && !cancelled,
+    cancelled,
+    note: !inDoshaHouse
+      ? 'Mars is not in a Manglik-causing house'
+      : cancelled
+        ? 'Mars is in a Manglik-causing house but is strong (own/exalted sign), cancelling the dosha'
+        : 'Mars is in a Manglik-causing house',
+  };
+}
+
+function computeManglikPair(groomPlanets, bridePlanets) {
+  const groom = computeManglik(groomPlanets);
+  const bride = computeManglik(bridePlanets);
+  let verdict;
+  if (groom.isManglik && bride.isManglik) verdict = 'both';
+  else if (!groom.isManglik && !bride.isManglik) verdict = 'neither';
+  else verdict = 'mismatch';
+  return { groom, bride, verdict };
+}
+
+function computeDashaSandhi(dasha, windowYears = DASHA_SANDHI_WINDOW_YEARS) {
+  const currentMahadasha = dasha.mahadashas[0];
+  const totalYears = DASHA_SEQUENCE.find((d) => d.lord === currentMahadasha.lord).years;
+  const elapsedYears = totalYears - dasha.balanceYears;
+  const remainingYears = dasha.balanceYears;
+  return elapsedYears < windowYears || remainingYears < windowYears;
+}
+
+function computeAshtakoot(groomMoon, brideMoon) {
+  const koots = [
+    varnaKoot(groomMoon.rashiIndex, brideMoon.rashiIndex),
+    vashyaKoot(groomMoon.rashiIndex, brideMoon.rashiIndex),
+    taraKoot(groomMoon.nakshatraIndex, brideMoon.nakshatraIndex),
+    yoniKoot(groomMoon.nakshatraIndex, brideMoon.nakshatraIndex),
+    grahaMaitriKoot(groomMoon.rashiIndex, brideMoon.rashiIndex),
+    ganaKoot(groomMoon.nakshatraIndex, brideMoon.nakshatraIndex),
+    bhakootKoot(groomMoon.rashiIndex, brideMoon.rashiIndex),
+    nadiKoot(groomMoon.nakshatraIndex, brideMoon.nakshatraIndex, groomMoon.rashiIndex, brideMoon.rashiIndex),
+  ];
+  const totalPoints = koots.reduce((sum, k) => sum + k.points, 0);
+  return { koots, totalPoints, maxPoints: 36 };
+}
+
+function computeVerdict(totalPoints, manglikVerdict) {
+  let band;
+  if (totalPoints < 18) band = 'not_recommended';
+  else if (totalPoints < 25) band = 'average';
+  else if (totalPoints < 33) band = 'good';
+  else band = 'excellent';
+  return { band, totalPoints, caution: manglikVerdict === 'mismatch' };
+}
+
+function computeMatch(groomResult, brideResult) {
+  const groomMoon = groomResult.planets.find((p) => p.key === 'MOON');
+  const brideMoon = brideResult.planets.find((p) => p.key === 'MOON');
+  const ashtakoot = computeAshtakoot(groomMoon, brideMoon);
+  const manglik = computeManglikPair(groomResult.planets, brideResult.planets);
+  const dashaSandhi = {
+    groom: computeDashaSandhi(groomResult.dasha),
+    bride: computeDashaSandhi(brideResult.dasha),
+  };
+  const verdict = computeVerdict(ashtakoot.totalPoints, manglik.verdict);
+  return { ashtakoot, manglik, dashaSandhi, verdict };
+}
+
 export {
   friendshipRelation, combinedFriendshipScore,
   varnaKoot, vashyaKoot, grahaMaitriKoot,
   taraKoot, yoniKoot, ganaKoot,
   bhakootKoot, nadiKoot,
+  computeManglik, computeManglikPair, computeDashaSandhi,
+  computeAshtakoot, computeVerdict, computeMatch,
 };

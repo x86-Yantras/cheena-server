@@ -188,3 +188,135 @@ describe('nadiKoot', () => {
     expect(result).toMatchObject({ key: 'nadi', points: 0, maxPoints: 8, exceptionApplied: false });
   });
 });
+
+import {
+  computeManglik, computeManglikPair, computeDashaSandhi,
+  computeAshtakoot, computeVerdict, computeMatch,
+} from '../src/matchCalculator.js';
+
+function marsPlanet({ house, rashiIndex }) {
+  return [{ key: 'MARS', house, rashiIndex }];
+}
+
+describe('computeManglik', () => {
+  it('is not manglik when Mars is outside the dosha houses', () => {
+    const result = computeManglik(marsPlanet({ house: 3, rashiIndex: 2 }));
+    expect(result).toMatchObject({ isManglik: false, cancelled: false });
+  });
+
+  it('is manglik when Mars is in a dosha house and not strong', () => {
+    const result = computeManglik(marsPlanet({ house: 1, rashiIndex: 5 }));
+    expect(result).toMatchObject({ isManglik: true, cancelled: false });
+  });
+
+  it('cancels the dosha when Mars is in its own rashi', () => {
+    const result = computeManglik(marsPlanet({ house: 7, rashiIndex: 0 }));
+    expect(result).toMatchObject({ isManglik: false, cancelled: true });
+  });
+
+  it('cancels the dosha when Mars is exalted', () => {
+    const result = computeManglik(marsPlanet({ house: 8, rashiIndex: 9 }));
+    expect(result).toMatchObject({ isManglik: false, cancelled: true });
+  });
+});
+
+describe('computeManglikPair', () => {
+  it('reports both when both are manglik', () => {
+    const groom = marsPlanet({ house: 1, rashiIndex: 5 });
+    const bride = marsPlanet({ house: 2, rashiIndex: 5 });
+    expect(computeManglikPair(groom, bride).verdict).toBe('both');
+  });
+
+  it('reports neither when neither is manglik', () => {
+    const groom = marsPlanet({ house: 3, rashiIndex: 5 });
+    const bride = marsPlanet({ house: 5, rashiIndex: 5 });
+    expect(computeManglikPair(groom, bride).verdict).toBe('neither');
+  });
+
+  it('reports mismatch when only one is manglik', () => {
+    const groom = marsPlanet({ house: 1, rashiIndex: 5 });
+    const bride = marsPlanet({ house: 3, rashiIndex: 5 });
+    expect(computeManglikPair(groom, bride).verdict).toBe('mismatch');
+  });
+});
+
+describe('computeDashaSandhi', () => {
+  it('is true when little time has elapsed in the current mahadasha', () => {
+    // SUN mahadasha is 6 years; balanceYears 5.7 means only 0.3 years elapsed
+    const dasha = { balanceYears: 5.7, mahadashas: [{ lord: 'SUN' }] };
+    expect(computeDashaSandhi(dasha)).toBe(true);
+  });
+
+  it('is true when little time remains in the current mahadasha', () => {
+    const dasha = { balanceYears: 0.5, mahadashas: [{ lord: 'SUN' }] };
+    expect(computeDashaSandhi(dasha)).toBe(true);
+  });
+
+  it('is false when comfortably inside the current mahadasha', () => {
+    const dasha = { balanceYears: 3, mahadashas: [{ lord: 'SUN' }] };
+    expect(computeDashaSandhi(dasha)).toBe(false);
+  });
+});
+
+describe('computeAshtakoot', () => {
+  it('sums all 8 koots to a 36-point max', () => {
+    const groomMoon = { rashiIndex: 0, nakshatraIndex: 0 };
+    const brideMoon = { rashiIndex: 7, nakshatraIndex: 23 };
+    const result = computeAshtakoot(groomMoon, brideMoon);
+    expect(result.koots).toHaveLength(8);
+    expect(result.maxPoints).toBe(36);
+    expect(result.totalPoints).toBe(result.koots.reduce((sum, k) => sum + k.points, 0));
+  });
+});
+
+describe('computeVerdict', () => {
+  it('bands scores below 18 as not_recommended', () => {
+    expect(computeVerdict(17.9, 'neither')).toMatchObject({ band: 'not_recommended', caution: false });
+  });
+
+  it('bands scores from 18 to 24.9 as average', () => {
+    expect(computeVerdict(18, 'neither').band).toBe('average');
+    expect(computeVerdict(24.9, 'neither').band).toBe('average');
+  });
+
+  it('bands scores from 25 to 32.9 as good', () => {
+    expect(computeVerdict(25, 'neither').band).toBe('good');
+    expect(computeVerdict(32.9, 'neither').band).toBe('good');
+  });
+
+  it('bands scores from 33 up as excellent', () => {
+    expect(computeVerdict(33, 'neither').band).toBe('excellent');
+    expect(computeVerdict(36, 'neither').band).toBe('excellent');
+  });
+
+  it('flags caution when the manglik verdict is a mismatch, independent of band', () => {
+    expect(computeVerdict(35, 'mismatch').caution).toBe(true);
+    expect(computeVerdict(35, 'both').caution).toBe(false);
+  });
+});
+
+describe('computeMatch', () => {
+  function fakeKundaliResult({ moonRashi, moonNakshatra, marsHouse, marsRashi, dashaLord, balanceYears }) {
+    return {
+      planets: [
+        { key: 'MOON', rashiIndex: moonRashi, nakshatraIndex: moonNakshatra },
+        { key: 'MARS', rashiIndex: marsRashi, house: marsHouse },
+      ],
+      dasha: { balanceYears, mahadashas: [{ lord: dashaLord }] },
+    };
+  }
+
+  it('assembles ashtakoot, manglik, dasha-sandhi, and verdict from two kundali results', () => {
+    const groom = fakeKundaliResult({
+      moonRashi: 0, moonNakshatra: 0, marsHouse: 3, marsRashi: 5, dashaLord: 'SUN', balanceYears: 3,
+    });
+    const bride = fakeKundaliResult({
+      moonRashi: 7, moonNakshatra: 23, marsHouse: 5, marsRashi: 5, dashaLord: 'MOON', balanceYears: 3,
+    });
+    const report = computeMatch(groom, bride);
+    expect(report.ashtakoot.maxPoints).toBe(36);
+    expect(report.manglik.verdict).toBe('neither');
+    expect(report.dashaSandhi).toEqual({ groom: false, bride: false });
+    expect(report.verdict.totalPoints).toBe(report.ashtakoot.totalPoints);
+  });
+});
