@@ -70,7 +70,7 @@ describe('/api/me/matches', () => {
     const savedKundali = await request(app)
       .post('/api/me/kundalis')
       .set('Authorization', `Bearer ${token}`)
-      .send({ label: 'Groom Self', ...groomInput });
+      .send({ label: 'Groom Self', name: 'Groom Self', ...groomInput });
 
     const createResponse = await request(app)
       .post('/api/me/matches')
@@ -95,7 +95,7 @@ describe('/api/me/matches', () => {
     const savedKundali = await request(app)
       .post('/api/me/kundalis')
       .set('Authorization', `Bearer ${tokenA}`)
-      .send({ label: 'Self', ...groomInput });
+      .send({ label: 'Self', name: 'Self', ...groomInput });
 
     const response = await request(app)
       .post('/api/me/matches')
