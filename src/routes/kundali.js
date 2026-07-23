@@ -14,7 +14,8 @@ router.post('/', async (req, res) => {
     const result = await calculateKundali(req.body);
     res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'internal server error' });
   }
 });
 

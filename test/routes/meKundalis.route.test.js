@@ -98,6 +98,24 @@ describe('/api/me/kundalis', () => {
     expect(getResponse.status).toBe(404);
   }, 20000);
 
+  it('returns 404 for a malformed id on GET', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'malformed-get@example.com');
+    const response = await request(app)
+      .get('/api/me/kundalis/not-a-number')
+      .set('Authorization', `Bearer ${token}`);
+    expect(response.status).toBe(404);
+  }, 20000);
+
+  it('returns 404 for a malformed id on DELETE', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'malformed-delete@example.com');
+    const response = await request(app)
+      .delete('/api/me/kundalis/not-a-number')
+      .set('Authorization', `Bearer ${token}`);
+    expect(response.status).toBe(404);
+  }, 20000);
+
   it('returns 400 for an invalid payload', async () => {
     const app = createApp();
     const token = await registerAndLogin(app, 'invalid@example.com');

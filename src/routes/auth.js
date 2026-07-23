@@ -47,7 +47,8 @@ router.post('/register', async (req, res) => {
       res.status(409).json({ error: 'email is already registered' });
       return;
     }
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'internal server error' });
   }
 });
 
@@ -72,7 +73,8 @@ router.post('/login', async (req, res) => {
     const token = signToken({ userId: user.id });
     res.json({ token, user: { id: user.id, email: user.email } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'internal server error' });
   }
 });
 

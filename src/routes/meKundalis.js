@@ -17,7 +17,8 @@ router.get('/', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'internal server error' });
   }
 });
 
@@ -44,11 +45,16 @@ router.post('/', async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'internal server error' });
   }
 });
 
 router.get('/:id', async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    res.status(404).json({ error: 'kundali not found' });
+    return;
+  }
   try {
     const pool = getPool();
     const { rows } = await pool.query(
@@ -61,11 +67,16 @@ router.get('/:id', async (req, res) => {
     }
     res.json(rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'internal server error' });
   }
 });
 
 router.delete('/:id', async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    res.status(404).json({ error: 'kundali not found' });
+    return;
+  }
   try {
     const pool = getPool();
     const { rowCount } = await pool.query(
@@ -78,7 +89,8 @@ router.delete('/:id', async (req, res) => {
     }
     res.status(204).send();
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: 'internal server error' });
   }
 });
 
