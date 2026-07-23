@@ -22,6 +22,19 @@ describe('matchData', () => {
     expect(NADI_BY_NAKSHATRA).toHaveLength(27);
   });
 
+  it('maps specific nakshatras to their verified classical Nadi', () => {
+    // Verified against two independent sources (jagannathhora.com and
+    // astrolight08.wordpress.com), spread across the array.
+    expect(NADI_BY_NAKSHATRA[0]).toBe('aadi'); // Ashwini
+    expect(NADI_BY_NAKSHATRA[1]).toBe('madhya'); // Bharani
+    expect(NADI_BY_NAKSHATRA[3]).toBe('antya'); // Rohini
+    expect(NADI_BY_NAKSHATRA[9]).toBe('antya'); // Magha
+    expect(NADI_BY_NAKSHATRA[12]).toBe('aadi'); // Hasta
+    expect(NADI_BY_NAKSHATRA[17]).toBe('aadi'); // Jyeshtha
+    expect(NADI_BY_NAKSHATRA[22]).toBe('madhya'); // Dhanishta
+    expect(NADI_BY_NAKSHATRA[26]).toBe('antya'); // Revati
+  });
+
   it('maps rashi 0 (Mesha) to Mars lordship, kshatriya varna, chatushpada vashya', () => {
     expect(RASHI_LORDS[0]).toBe('MARS');
     expect(VARNA_BY_RASHI[0]).toBe('kshatriya');

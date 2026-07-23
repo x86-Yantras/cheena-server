@@ -178,13 +178,13 @@ describe('nadiKoot', () => {
   });
 
   it('cancels the dosha for same nadi, different nakshatra, different rashi lords', () => {
-    // nak 0 and nak 4 are both "aadi" nadi; rashi 0 (Mars) vs rashi 1 (Venus)
-    const result = nadiKoot(0, 4, 0, 1);
+    // nak 0 and nak 5 are both "aadi" nadi; rashi 0 (Mars) vs rashi 1 (Venus)
+    const result = nadiKoot(0, 5, 0, 1);
     expect(result).toMatchObject({ key: 'nadi', points: 8, maxPoints: 8, exceptionApplied: true });
   });
 
   it('does not cancel the dosha for same nadi, different nakshatra, same rashi', () => {
-    const result = nadiKoot(0, 4, 0, 0);
+    const result = nadiKoot(0, 5, 0, 0);
     expect(result).toMatchObject({ key: 'nadi', points: 0, maxPoints: 8, exceptionApplied: false });
   });
 });

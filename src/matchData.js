@@ -51,11 +51,21 @@ const GANA_MATRIX = {
   rakshasa: { deva: 1, manushya: 0, rakshasa: 6 },
 };
 
-// Nadi (biological humor) per nakshatra.
+// Nadi (biological humor) per nakshatra. Verified against two independent
+// sources (jagannathhora.com/nadi-dosha-complete-guide and
+// astrolight08.wordpress.com/2018/08/24/nakshatra-nadi), which agree:
+// Aadi: Ashwini, Ardra, Punarvasu, Uttara Phalguni, Hasta, Jyeshtha, Mula,
+//       Shatabhisha, Purva Bhadrapada
+// Madhya: Bharani, Mrigashira, Pushya, Purva Phalguni, Chitra, Anuradha,
+//         Purva Ashadha, Dhanishta, Uttara Bhadrapada
+// Antya: Krittika, Rohini, Ashlesha, Magha, Swati, Vishakha, Uttara Ashadha,
+//        Shravana, Revati
+// This is a "zigzag" pattern: each consecutive group of 3 nakshatras cycles
+// aadi/madhya/antya, alternating forward and reverse direction per group.
 const NADI_BY_NAKSHATRA = [
-  'aadi', 'madhya', 'antya', 'madhya', 'aadi', 'antya', 'aadi', 'madhya', 'antya',
-  'aadi', 'madhya', 'antya', 'aadi', 'madhya', 'antya', 'aadi', 'madhya', 'antya',
-  'aadi', 'madhya', 'antya', 'aadi', 'madhya', 'antya', 'aadi', 'madhya', 'antya',
+  'aadi', 'madhya', 'antya', 'antya', 'madhya', 'aadi', 'aadi', 'madhya', 'antya',
+  'antya', 'madhya', 'aadi', 'aadi', 'madhya', 'antya', 'antya', 'madhya', 'aadi',
+  'aadi', 'madhya', 'antya', 'antya', 'madhya', 'aadi', 'aadi', 'madhya', 'antya',
 ];
 
 // Naisargika (natural) friendship among the 7 classical grahas.
