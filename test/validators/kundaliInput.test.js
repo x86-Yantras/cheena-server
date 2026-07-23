@@ -26,4 +26,16 @@ describe('validateKundaliInput', () => {
       expect.arrayContaining([expect.stringMatching(/timezone/i)])
     );
   });
+
+  it('flags an invalid time format', () => {
+    expect(validateKundaliInput({ ...validBody, time: '2:30pm' })).toEqual(
+      expect.arrayContaining([expect.stringMatching(/time/i)])
+    );
+  });
+
+  it('flags an out-of-range longitude', () => {
+    expect(validateKundaliInput({ ...validBody, longitude: 200 })).toEqual(
+      expect.arrayContaining([expect.stringMatching(/longitude/i)])
+    );
+  });
 });
