@@ -122,6 +122,23 @@ describe('/api/me/matches', () => {
     expect(response.status).toBe(400);
   }, 20000);
 
+  it('returns 400 for a non-integer kundaliId', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'bad-kundali-id@example.com');
+
+    const response = await request(app)
+      .post('/api/me/matches')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        groomLabel: 'Ravi',
+        brideLabel: 'Sita',
+        groom: { kundaliId: 'not-a-number' },
+        bride: brideInput,
+      });
+
+    expect(response.status).toBe(400);
+  }, 20000);
+
   it('returns 400 for a missing label', async () => {
     const app = createApp();
     const token = await registerAndLogin(app, 'no-label@example.com');

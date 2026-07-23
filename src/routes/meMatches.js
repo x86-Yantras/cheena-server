@@ -9,11 +9,38 @@ const router = Router();
 
 router.use(requireAuth);
 
-async function resolveSide(pool, userId, side) {
+// kundaliId is a BIGSERIAL primary key, so the pg driver (and any client round-tripping
+// a previously-returned id) may represent it as a numeric string rather than a JS number.
+// Accept plain integers and integer-looking strings; reject everything else (floats,
+// non-numeric strings, arrays, objects, etc.) before it ever reaches a SQL query.
+function isValidKundaliId(value) {
+  if (typeof value === 'number') return Number.isInteger(value);
+  if (typeof value === 'string') return /^\d+$/.test(value.trim());
+  return false;
+}
+
+// Cheap, synchronous shape validation for one side of a match request. Performs no
+// DB queries and no ephemeris computation, so both sides can be validated up front
+// before either side's expensive work (resolveSide) is started.
+function validateSideShape(side) {
   if (side && typeof side.kundaliId !== 'undefined') {
+    if (!isValidKundaliId(side.kundaliId)) {
+      return { error: 'kundaliId must be an integer', status: 400 };
+    }
+    return { kundaliId: side.kundaliId };
+  }
+  const errors = validateKundaliInput(side || {});
+  if (errors.length > 0) return { error: errors.join('; '), status: 400 };
+  return { fresh: side };
+}
+
+// Expensive resolution (DB lookup or calculateKundali) for a side that has already
+// passed validateSideShape.
+async function resolveSide(pool, userId, shape) {
+  if (typeof shape.kundaliId !== 'undefined') {
     const { rows } = await pool.query(
       'SELECT date, time, latitude, longitude, timezone, result FROM kundalis WHERE id = $1 AND user_id = $2',
-      [side.kundaliId, userId],
+      [shape.kundaliId, userId],
     );
     if (rows.length === 0) return { error: 'kundali not found', status: 404 };
     const row = rows[0];
@@ -22,9 +49,7 @@ async function resolveSide(pool, userId, side) {
       input: { date: row.date, time: row.time, latitude: row.latitude, longitude: row.longitude, timezone: row.timezone },
     };
   }
-  const errors = validateKundaliInput(side || {});
-  if (errors.length > 0) return { error: errors.join('; '), status: 400 };
-  const { date, time, latitude, longitude, timezone } = side;
+  const { date, time, latitude, longitude, timezone } = shape.fresh;
   const result = await calculateKundali({ date, time, latitude, longitude, timezone });
   return { result, input: { date, time, latitude, longitude, timezone: timezone ?? null } };
 }
@@ -70,14 +95,24 @@ router.post('/', async (req, res) => {
     res.status(400).json({ error: 'brideLabel must be a non-empty string' });
     return;
   }
+  const groomShape = validateSideShape(groom);
+  if (groomShape.error) {
+    res.status(groomShape.status).json({ error: groomShape.error });
+    return;
+  }
+  const brideShape = validateSideShape(bride);
+  if (brideShape.error) {
+    res.status(brideShape.status).json({ error: brideShape.error });
+    return;
+  }
   try {
     const pool = getPool();
-    const groomSide = await resolveSide(pool, req.userId, groom);
+    const groomSide = await resolveSide(pool, req.userId, groomShape);
     if (groomSide.error) {
       res.status(groomSide.status).json({ error: groomSide.error });
       return;
     }
-    const brideSide = await resolveSide(pool, req.userId, bride);
+    const brideSide = await resolveSide(pool, req.userId, brideShape);
     if (brideSide.error) {
       res.status(brideSide.status).json({ error: brideSide.error });
       return;
