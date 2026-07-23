@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import kundaliRouter from './routes/kundali.js';
+import authRouter from './routes/auth.js';
 
 function createApp() {
   const app = express();
@@ -10,6 +11,7 @@ function createApp() {
     res.json({ status: 'ok' });
   });
   app.use('/api/kundali', kundaliRouter);
+  app.use('/api/auth', authRouter);
   return app;
 }
 
