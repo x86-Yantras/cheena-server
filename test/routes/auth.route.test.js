@@ -73,4 +73,23 @@ describe('auth routes', () => {
       .send({ email: 'wrongpw@example.com', password: 'nope12345' });
     expect(response.status).toBe(401);
   });
+
+  it('returns 401 for a nonexistent email', async () => {
+    const app = createApp();
+    const response = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'nobody@example.com', password: 'hunter22222' });
+    expect(response.status).toBe(401);
+  });
+
+  it('handles concurrent registrations with the same email: one 201, one 409', async () => {
+    const app = createApp();
+    const payload = { email: 'race@example.com', password: 'hunter22222' };
+    const [first, second] = await Promise.all([
+      request(app).post('/api/auth/register').send(payload),
+      request(app).post('/api/auth/register').send(payload),
+    ]);
+    const statuses = [first.status, second.status].sort();
+    expect(statuses).toEqual([201, 409]);
+  });
 });

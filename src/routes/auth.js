@@ -27,20 +27,28 @@ router.post('/register', async (req, res) => {
     return;
   }
   const email = normalizeEmail(req.body.email);
-  const pool = getPool();
-  const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-  if (existing.rows.length > 0) {
-    res.status(409).json({ error: 'email is already registered' });
-    return;
+  try {
+    const pool = getPool();
+    const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existing.rows.length > 0) {
+      res.status(409).json({ error: 'email is already registered' });
+      return;
+    }
+    const passwordHash = await hashPassword(req.body.password);
+    const { rows } = await pool.query(
+      'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email',
+      [email, passwordHash]
+    );
+    const user = rows[0];
+    const token = signToken({ userId: user.id });
+    res.status(201).json({ token, user: { id: user.id, email: user.email } });
+  } catch (err) {
+    if (err.code === '23505') {
+      res.status(409).json({ error: 'email is already registered' });
+      return;
+    }
+    res.status(500).json({ error: err.message });
   }
-  const passwordHash = await hashPassword(req.body.password);
-  const { rows } = await pool.query(
-    'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email',
-    [email, passwordHash]
-  );
-  const user = rows[0];
-  const token = signToken({ userId: user.id });
-  res.status(201).json({ token, user: { id: user.id, email: user.email } });
 });
 
 router.post('/login', async (req, res) => {
@@ -50,18 +58,22 @@ router.post('/login', async (req, res) => {
     res.status(400).json({ error: 'email and password are required' });
     return;
   }
-  const pool = getPool();
-  const { rows } = await pool.query(
-    'SELECT id, email, password_hash FROM users WHERE email = $1',
-    [email]
-  );
-  const user = rows[0];
-  if (!user || !(await verifyPassword(password, user.password_hash))) {
-    res.status(401).json({ error: 'invalid email or password' });
-    return;
+  try {
+    const pool = getPool();
+    const { rows } = await pool.query(
+      'SELECT id, email, password_hash FROM users WHERE email = $1',
+      [email]
+    );
+    const user = rows[0];
+    if (!user || !(await verifyPassword(password, user.password_hash))) {
+      res.status(401).json({ error: 'invalid email or password' });
+      return;
+    }
+    const token = signToken({ userId: user.id });
+    res.json({ token, user: { id: user.id, email: user.email } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  const token = signToken({ userId: user.id });
-  res.json({ token, user: { id: user.id, email: user.email } });
 });
 
 export default router;
