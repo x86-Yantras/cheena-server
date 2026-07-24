@@ -76,8 +76,12 @@ describe('/api/me/matches', () => {
     expect(createResponse.body.report.groom.chart.ascendant.rashiIndex).toBeTypeOf('number');
     expect(Array.isArray(createResponse.body.report.groom.chart.planets)).toBe(true);
     expect(createResponse.body.report.groom.chart.planets.length).toBeGreaterThan(0);
+    expect(createResponse.body.report.groom.chart.ascendant.navamsa.rashiIndex).toBeTypeOf('number');
+    expect(createResponse.body.report.groom.chart.planets[0].navamsa.house).toBeTypeOf('number');
     expect(createResponse.body.report.bride.chart.ascendant.rashiIndex).toBeTypeOf('number');
     expect(Array.isArray(createResponse.body.report.bride.chart.planets)).toBe(true);
+    expect(createResponse.body.report.bride.chart.ascendant.navamsa.rashiIndex).toBeTypeOf('number');
+    expect(createResponse.body.report.bride.chart.planets[0].navamsa.house).toBeTypeOf('number');
 
     const getResponse = await request(app)
       .get(`/api/me/matches/${createResponse.body.id}`)
