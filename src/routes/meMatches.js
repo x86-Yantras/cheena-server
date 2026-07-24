@@ -118,6 +118,8 @@ router.post('/', async (req, res) => {
       return;
     }
     const report = computeMatch(groomSide.result, brideSide.result);
+    report.groom = { chart: { ascendant: groomSide.result.ascendant, planets: groomSide.result.planets } };
+    report.bride = { chart: { ascendant: brideSide.result.ascendant, planets: brideSide.result.planets } };
     const { rows } = await pool.query(
       `INSERT INTO matches
          (user_id, groom_label, bride_label, groom_input, bride_input, groom_kundali_id, bride_kundali_id, report)

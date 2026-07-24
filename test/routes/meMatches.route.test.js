@@ -63,6 +63,29 @@ describe('/api/me/matches', () => {
     expect(typeof listResponse.body[0].totalPoints).toBe('number');
   }, 30000);
 
+  it('persists groom and bride chart data (ascendant + planets) in the report', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'chart-data@example.com');
+
+    const createResponse = await request(app)
+      .post('/api/me/matches')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ groomLabel: 'Ravi', brideLabel: 'Sita', groom: groomInput, bride: brideInput });
+
+    expect(createResponse.status).toBe(201);
+    expect(createResponse.body.report.groom.chart.ascendant.rashiIndex).toBeTypeOf('number');
+    expect(Array.isArray(createResponse.body.report.groom.chart.planets)).toBe(true);
+    expect(createResponse.body.report.groom.chart.planets.length).toBeGreaterThan(0);
+    expect(createResponse.body.report.bride.chart.ascendant.rashiIndex).toBeTypeOf('number');
+    expect(Array.isArray(createResponse.body.report.bride.chart.planets)).toBe(true);
+
+    const getResponse = await request(app)
+      .get(`/api/me/matches/${createResponse.body.id}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(getResponse.body.report.groom.chart.ascendant.rashiIndex).toBeTypeOf('number');
+    expect(getResponse.body.report.bride.chart.ascendant.rashiIndex).toBeTypeOf('number');
+  }, 30000);
+
   it('creates a match using a saved kundali for one side', async () => {
     const app = createApp();
     const token = await registerAndLogin(app, 'saved-side@example.com');
