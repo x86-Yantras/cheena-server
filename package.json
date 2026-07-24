@@ -16,7 +16,6 @@
     "jsonwebtoken": "9.0.3",
     "luxon": "3.7.2",
     "pg": "8.22.0",
-    "swisseph-wasm": "0.1.0",
     "tz-lookup": "6.1.25"
   },
   "devDependencies": {
