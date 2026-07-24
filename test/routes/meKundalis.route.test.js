@@ -194,6 +194,49 @@ describe('/api/me/kundalis', () => {
     expect(getResponse.body.name).toBe('Priya Sharma');
   }, 20000);
 
+  it('updates the result when patching with a result field, alongside label/name', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'refresh-persist@example.com');
+    const createResponse = await request(app)
+      .post('/api/me/kundalis')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validPayload);
+    const kundaliId = createResponse.body.id;
+    const originalResult = createResponse.body.result;
+
+    const newResult = { ...originalResult, julianDay: 9999999 };
+
+    const patchResponse = await request(app)
+      .patch(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ label: 'Self', name: 'Aarav Sharma', result: newResult });
+    expect(patchResponse.status).toBe(200);
+    expect(patchResponse.body.result.julianDay).toBe(9999999);
+
+    const getResponse = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(getResponse.body.result.julianDay).toBe(9999999);
+  }, 20000);
+
+  it('leaves the result unchanged when patching without a result field', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'refresh-no-result@example.com');
+    const createResponse = await request(app)
+      .post('/api/me/kundalis')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validPayload);
+    const kundaliId = createResponse.body.id;
+    const originalResult = createResponse.body.result;
+
+    const patchResponse = await request(app)
+      .patch(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ label: 'Self', name: 'Aarav Sharma' });
+    expect(patchResponse.status).toBe(200);
+    expect(patchResponse.body.result).toEqual(originalResult);
+  }, 20000);
+
   it("returns 404 editing another user's kundali", async () => {
     const app = createApp();
     const tokenA = await registerAndLogin(app, 'editA@example.com');

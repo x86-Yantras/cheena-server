@@ -81,7 +81,7 @@ router.patch('/:id', async (req, res) => {
     res.status(404).json({ error: 'kundali not found' });
     return;
   }
-  const { label, name } = req.body;
+  const { label, name, result } = req.body;
   if (typeof label !== 'string' || label.trim() === '') {
     res.status(400).json({ error: 'label must be a non-empty string' });
     return;
@@ -93,10 +93,10 @@ router.patch('/:id', async (req, res) => {
   try {
     const pool = getPool();
     const { rows } = await pool.query(
-      `UPDATE kundalis SET label = $1, name = $2
-       WHERE id = $3 AND user_id = $4
+      `UPDATE kundalis SET label = $1, name = $2, result = COALESCE($3, result)
+       WHERE id = $4 AND user_id = $5
        RETURNING id, label, name, date, time, latitude, longitude, timezone, result, created_at`,
-      [label.trim(), name.trim(), req.params.id, req.userId]
+      [label.trim(), name.trim(), result ?? null, req.params.id, req.userId]
     );
     if (rows.length === 0) {
       res.status(404).json({ error: 'kundali not found' });
