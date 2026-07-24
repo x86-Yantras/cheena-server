@@ -76,6 +76,39 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+router.patch('/:id', async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    res.status(404).json({ error: 'kundali not found' });
+    return;
+  }
+  const { label, name } = req.body;
+  if (typeof label !== 'string' || label.trim() === '') {
+    res.status(400).json({ error: 'label must be a non-empty string' });
+    return;
+  }
+  if (typeof name !== 'string' || name.trim() === '') {
+    res.status(400).json({ error: 'name must be a non-empty string' });
+    return;
+  }
+  try {
+    const pool = getPool();
+    const { rows } = await pool.query(
+      `UPDATE kundalis SET label = $1, name = $2
+       WHERE id = $3 AND user_id = $4
+       RETURNING id, label, name, date, time, latitude, longitude, timezone, result, created_at`,
+      [label.trim(), name.trim(), req.params.id, req.userId]
+    );
+    if (rows.length === 0) {
+      res.status(404).json({ error: 'kundali not found' });
+      return;
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'internal server error' });
+  }
+});
+
 router.delete('/:id', async (req, res) => {
   if (!/^\d+$/.test(req.params.id)) {
     res.status(404).json({ error: 'kundali not found' });

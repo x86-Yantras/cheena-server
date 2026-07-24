@@ -152,4 +152,71 @@ describe('/api/me/kundalis', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(listResponse.body[0].name).toBe('Aarav Sharma');
   }, 20000);
+
+  it('updates the label and name of a kundali owned by the requester', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'edit@example.com');
+    const createResponse = await request(app)
+      .post('/api/me/kundalis')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validPayload);
+    const kundaliId = createResponse.body.id;
+
+    const patchResponse = await request(app)
+      .patch(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ label: 'Sister', name: 'Priya Sharma' });
+    expect(patchResponse.status).toBe(200);
+    expect(patchResponse.body.label).toBe('Sister');
+    expect(patchResponse.body.name).toBe('Priya Sharma');
+
+    const getResponse = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(getResponse.body.label).toBe('Sister');
+    expect(getResponse.body.name).toBe('Priya Sharma');
+  }, 20000);
+
+  it("returns 404 editing another user's kundali", async () => {
+    const app = createApp();
+    const tokenA = await registerAndLogin(app, 'editA@example.com');
+    const tokenB = await registerAndLogin(app, 'editB@example.com');
+    const createResponse = await request(app)
+      .post('/api/me/kundalis')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send(validPayload);
+    const kundaliId = createResponse.body.id;
+
+    const response = await request(app)
+      .patch(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send({ label: 'Sister', name: 'Priya Sharma' });
+    expect(response.status).toBe(404);
+  }, 20000);
+
+  it('returns 400 when editing with an empty label or name', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'edit-invalid@example.com');
+    const createResponse = await request(app)
+      .post('/api/me/kundalis')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validPayload);
+    const kundaliId = createResponse.body.id;
+
+    const response = await request(app)
+      .patch(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ label: '', name: 'Priya Sharma' });
+    expect(response.status).toBe(400);
+  }, 20000);
+
+  it('returns 404 for a malformed id on PATCH', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'malformed-patch@example.com');
+    const response = await request(app)
+      .patch('/api/me/kundalis/not-a-number')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ label: 'Sister', name: 'Priya Sharma' });
+    expect(response.status).toBe(404);
+  }, 20000);
 });
