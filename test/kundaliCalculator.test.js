@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   calculateKundali,
   rashiFromLongitude,
@@ -51,6 +51,26 @@ describe('navamsaRashiIndex', () => {
 });
 
 describe('calculateKundali', () => {
+  beforeEach(() => {
+    process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
+    process.env.EPHEMERIS_SERVICE_API_KEY = 'test-api-key';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        julianDay: 2448026.5,
+        ascendantLongitude: 15,
+        planetLongitudes: {
+          SUN: 10, MOON: 40, MARS: 70, MERCURY: 100,
+          JUPITER: 130, VENUS: 160, SATURN: 190, RAHU: 220,
+        },
+      }),
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   const input = { date: '1990-05-15', time: '14:30', latitude: 40.7128, longitude: -74.006 };
 
   it('returns all 9 grahas with valid rashi/nakshatra/house ranges', async () => {
@@ -87,6 +107,32 @@ describe('calculateKundali', () => {
 });
 
 describe('calculateKundali (real-world regression case)', () => {
+  beforeEach(() => {
+    process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
+    process.env.EPHEMERIS_SERVICE_API_KEY = 'test-api-key';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        julianDay: 2451179.6215278,
+        ascendantLongitude: 276.51,
+        planetLongitudes: {
+          SUN: 256.39,
+          MOON: 62.91,
+          MARS: 174.60,
+          MERCURY: 237.60,
+          JUPITER: 328.12,
+          VENUS: 271.69,
+          SATURN: 2.93,
+          RAHU: 120.55,
+        },
+      }),
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   // 1999-01-01 08:40 local (Asia/Kathmandu, UTC+5:45), Baitadi, Nepal.
   // Independently-verified sidereal (Lahiri) values, mean-node Rahu/Ketu.
   // Tolerance is 0.02 degrees per graha, matching the precision of the
