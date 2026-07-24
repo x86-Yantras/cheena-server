@@ -1,19 +1,28 @@
-import SwissEph from 'swisseph-wasm';
 import tzlookup from 'tz-lookup';
 import { DateTime } from 'luxon';
 
-let swePromise = null;
+const SWE_CONSTANTS = {
+  SE_SUN: 'SUN',
+  SE_MOON: 'MOON',
+  SE_MARS: 'MARS',
+  SE_MERCURY: 'MERCURY',
+  SE_JUPITER: 'JUPITER',
+  SE_VENUS: 'VENUS',
+  SE_SATURN: 'SATURN',
+  SE_MEAN_NODE: 'RAHU',
+};
 
-function getSwe() {
-  if (!swePromise) {
-    swePromise = (async () => {
-      const swe = new SwissEph();
-      await swe.initSwissEph();
-      swe.set_sid_mode(swe.SE_SIDM_LAHIRI, 0, 0);
-      return swe;
-    })();
-  }
-  return swePromise;
+const CACHE_TTL_MS = 30000;
+const ephemerisCache = new Map();
+
+function cacheEphemerisResponse(jd, response) {
+  ephemerisCache.set(jd, response);
+  const timer = setTimeout(() => ephemerisCache.delete(jd), CACHE_TTL_MS);
+  timer.unref?.();
+}
+
+async function getSwe() {
+  return SWE_CONSTANTS;
 }
 
 function resolveUtc(dateStr, timeStr, latitude, longitude, timezone) {
@@ -28,22 +37,42 @@ function resolveUtc(dateStr, timeStr, latitude, longitude, timezone) {
 }
 
 async function computeJulianDay(dateStr, timeStr, latitude, longitude, timezone) {
-  const swe = await getSwe();
-  const utc = resolveUtc(dateStr, timeStr, latitude, longitude, timezone);
-  const hourDecimal = utc.hour + utc.minute / 60 + utc.second / 3600;
-  return swe.julday(utc.year, utc.month, utc.day, hourDecimal);
+  const response = await fetch(`${process.env.EPHEMERIS_SERVICE_URL}/v1/ephemeris`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': process.env.EPHEMERIS_SERVICE_API_KEY,
+    },
+    body: JSON.stringify({
+      date: dateStr,
+      time: timeStr,
+      latitude,
+      longitude,
+      timezone,
+    }),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.error || `Ephemeris service returned ${response.status}`);
+  }
+  cacheEphemerisResponse(body.julianDay, body);
+  return body.julianDay;
 }
 
 async function computeAscendantLongitude(jd, latitude, longitude) {
-  const swe = await getSwe();
-  const houses = swe.houses_ex(jd, swe.SEFLG_SIDEREAL, latitude, longitude, 'P');
-  return swe.degnorm(houses.ascmc[0]);
+  const cached = ephemerisCache.get(jd);
+  if (!cached) {
+    throw new Error(`No cached ephemeris response for julian day ${jd}. computeJulianDay must be called first.`);
+  }
+  return cached.ascendantLongitude;
 }
 
 async function computePlanetLongitude(jd, sweConst) {
-  const swe = await getSwe();
-  const position = swe.calc_ut(jd, sweConst, swe.SEFLG_SWIEPH | swe.SEFLG_SIDEREAL);
-  return swe.degnorm(position[0]);
+  const cached = ephemerisCache.get(jd);
+  if (!cached) {
+    throw new Error(`No cached ephemeris response for julian day ${jd}. computeJulianDay must be called first.`);
+  }
+  return cached.planetLongitudes[sweConst];
 }
 
 export { getSwe, resolveUtc, computeJulianDay, computeAscendantLongitude, computePlanetLongitude };
