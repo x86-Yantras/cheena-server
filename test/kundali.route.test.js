@@ -8,26 +8,20 @@ describe('POST /api/kundali', () => {
   beforeEach(() => {
     process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
     process.env.EPHEMERIS_SERVICE_API_KEY = 'test-api-key';
-    vi.stubGlobal('fetch', vi.fn(async (url, options) => {
-      const body = JSON.parse(options.body);
-      if (body.timezone === 'Not/AZone') {
-        return {
-          ok: false,
-          status: 400,
-          json: async () => ({ error: 'Invalid date/time/timezone: unsupported zone' }),
-        };
-      }
-      return {
-        ok: true,
-        json: async () => ({
-          julianDay: 2448026.5,
-          ascendantLongitude: 15,
-          planetLongitudes: {
-            SUN: 10, MOON: 40, MARS: 70, MERCURY: 100,
-            JUPITER: 130, VENUS: 160, SATURN: 190, RAHU: 220,
-          },
-        }),
-      };
+    // 'returns 400 for an invalid timezone override' below never reaches this
+    // mock: validateKundaliInput() rejects unknown IANA zones (via
+    // IANAZone.isValidZone) before calculateKundali()/fetch is called, so a
+    // single unconditional success response covers every case here.
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        julianDay: 2448026.5,
+        ascendantLongitude: 15,
+        planetLongitudes: {
+          SUN: 10, MOON: 40, MARS: 70, MERCURY: 100,
+          JUPITER: 130, VENUS: 160, SATURN: 190, RAHU: 220,
+        },
+      }),
     }));
   });
 
