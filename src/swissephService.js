@@ -13,12 +13,22 @@ const SWE_CONSTANTS = {
 };
 
 const CACHE_TTL_MS = 30000;
-const ephemerisCache = new Map();
+// Planet longitudes are geocentric: identical for every observer at a given
+// julian day, so they're safely shared across concurrent requests that
+// happen to land on the same instant. The ascendant is NOT — it depends on
+// latitude/longitude too — so a jd-only cache key would let two concurrent
+// requests for the same instant but different locations clobber each
+// other's ascendant. Cache the two independently, keyed accordingly.
+const planetLongitudesCache = new Map(); // jd -> planetLongitudes
+const ascendantCache = new Map(); // `${jd}|${latitude}|${longitude}` -> ascendantLongitude
 
-function cacheEphemerisResponse(jd, response) {
-  ephemerisCache.set(jd, response);
-  const timer = setTimeout(() => ephemerisCache.delete(jd), CACHE_TTL_MS);
+function scheduleEviction(cache, key) {
+  const timer = setTimeout(() => cache.delete(key), CACHE_TTL_MS);
   timer.unref?.();
+}
+
+function ascendantCacheKey(jd, latitude, longitude) {
+  return `${jd}|${latitude}|${longitude}`;
 }
 
 async function getSwe() {
@@ -51,28 +61,39 @@ async function computeJulianDay(dateStr, timeStr, latitude, longitude, timezone)
       timezone,
     }),
   });
-  const body = await response.json();
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error(`Ephemeris service returned ${response.status} with an unparsable body`);
+  }
   if (!response.ok) {
     throw new Error(body.error || `Ephemeris service returned ${response.status}`);
   }
-  cacheEphemerisResponse(body.julianDay, body);
-  return body.julianDay;
+  const { julianDay, ascendantLongitude, planetLongitudes } = body;
+  planetLongitudesCache.set(julianDay, planetLongitudes);
+  scheduleEviction(planetLongitudesCache, julianDay);
+  const ascKey = ascendantCacheKey(julianDay, latitude, longitude);
+  ascendantCache.set(ascKey, ascendantLongitude);
+  scheduleEviction(ascendantCache, ascKey);
+  return julianDay;
 }
 
 async function computeAscendantLongitude(jd, latitude, longitude) {
-  const cached = ephemerisCache.get(jd);
-  if (!cached) {
-    throw new Error(`No cached ephemeris response for julian day ${jd}. computeJulianDay must be called first.`);
+  const ascKey = ascendantCacheKey(jd, latitude, longitude);
+  const cached = ascendantCache.get(ascKey);
+  if (cached === undefined) {
+    throw new Error(`No cached ascendant for julian day ${jd} at (${latitude}, ${longitude}). computeJulianDay must be called first with the same coordinates.`);
   }
-  return cached.ascendantLongitude;
+  return cached;
 }
 
 async function computePlanetLongitude(jd, sweConst) {
-  const cached = ephemerisCache.get(jd);
+  const cached = planetLongitudesCache.get(jd);
   if (!cached) {
     throw new Error(`No cached ephemeris response for julian day ${jd}. computeJulianDay must be called first.`);
   }
-  return cached.planetLongitudes[sweConst];
+  return cached[sweConst];
 }
 
 export { getSwe, resolveUtc, computeJulianDay, computeAscendantLongitude, computePlanetLongitude };

@@ -95,4 +95,47 @@ describe('swissephService (HTTP client)', () => {
       computeJulianDay('2000-01-01', '12:00', 51.5074, -0.1278, 'Not/AZone'),
     ).rejects.toThrow(/invalid/i);
   });
+
+  it('throws a clear error when the service responds with an unparsable (non-JSON) body', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => {
+        throw new SyntaxError('Unexpected token < in JSON at position 0');
+      },
+    });
+    await expect(
+      computeJulianDay('2000-01-01', '12:00', 51.5074, -0.1278, 'UTC'),
+    ).rejects.toThrow(/502/);
+  });
+
+  it('keeps two same-instant, different-location ascendants independent under concurrent requests', async () => {
+    // Same jd (same UTC instant) for both, but two different observer
+    // locations — a jd-only cache key would let the second write clobber
+    // the first's location-dependent ascendant.
+    const responseForNewYork = {
+      julianDay: 2451545.0,
+      ascendantLongitude: 10.0,
+      planetLongitudes: MOCK_RESPONSE.planetLongitudes,
+    };
+    const responseForBoston = {
+      julianDay: 2451545.0,
+      ascendantLongitude: 200.0,
+      planetLongitudes: MOCK_RESPONSE.planetLongitudes,
+    };
+    fetchMock.mockImplementation(async (url, options) => {
+      const body = JSON.parse(options.body);
+      const response = body.latitude === 40.7128 ? responseForNewYork : responseForBoston;
+      return { ok: true, json: async () => response };
+    });
+
+    const jdNewYork = await computeJulianDay('2000-01-01', '12:00', 40.7128, -74.006, 'UTC');
+    const jdBoston = await computeJulianDay('2000-01-01', '12:00', 42.3601, -71.0589, 'UTC');
+    expect(jdNewYork).toBe(jdBoston);
+
+    const ascNewYork = await computeAscendantLongitude(jdNewYork, 40.7128, -74.006);
+    const ascBoston = await computeAscendantLongitude(jdBoston, 42.3601, -71.0589);
+    expect(ascNewYork).toBe(10.0);
+    expect(ascBoston).toBe(200.0);
+  });
 });
