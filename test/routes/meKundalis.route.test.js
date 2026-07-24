@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app.js';
 import { getPool, closePool } from '../../src/db/pool.js';
@@ -29,7 +29,24 @@ describe('/api/me/kundalis', () => {
     await runMigrations();
   });
 
+  beforeEach(() => {
+    process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
+    process.env.EPHEMERIS_SERVICE_API_KEY = 'test-api-key';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        julianDay: 2448026.5,
+        ascendantLongitude: 15,
+        planetLongitudes: {
+          SUN: 10, MOON: 40, MARS: 70, MERCURY: 100,
+          JUPITER: 130, VENUS: 160, SATURN: 190, RAHU: 220,
+        },
+      }),
+    }));
+  });
+
   afterEach(async () => {
+    vi.unstubAllGlobals();
     await getPool().query('TRUNCATE kundalis, users RESTART IDENTITY CASCADE');
   });
 
