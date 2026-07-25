@@ -1,0 +1,35 @@
+{
+  "defaultProvider": "anthropic",
+  "providers": {
+    "anthropic": {
+      "format": "anthropic",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "baseUrl": "https://api.anthropic.com/v1/messages",
+      "defaultModel": "claude-haiku-4-5-20251001"
+    },
+    "openai": {
+      "format": "openai",
+      "apiKeyEnv": "OPENAI_API_KEY",
+      "baseUrl": "https://api.openai.com/v1/chat/completions",
+      "defaultModel": "gpt-4o-mini"
+    },
+    "gemini": {
+      "format": "gemini",
+      "apiKeyEnv": "GEMINI_API_KEY",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta/models",
+      "defaultModel": "gemini-2.0-flash"
+    },
+    "groq": {
+      "format": "openai",
+      "apiKeyEnv": "GROQ_API_KEY",
+      "baseUrl": "https://api.groq.com/openai/v1/chat/completions",
+      "defaultModel": "llama-3.3-70b-versatile"
+    },
+    "openrouter": {
+      "format": "openai",
+      "apiKeyEnv": "OPENROUTER_API_KEY",
+      "baseUrl": "https://openrouter.ai/api/v1/chat/completions",
+      "defaultModel": "meta-llama/llama-3.3-70b-instruct:free"
+    }
+  }
+}
