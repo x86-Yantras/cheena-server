@@ -21,6 +21,7 @@ describe('POST /api/kundali', () => {
           SUN: 10, MOON: 40, MARS: 70, MERCURY: 100,
           JUPITER: 130, VENUS: 160, SATURN: 190, RAHU: 220,
         },
+        bhavaMadhyas: [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330],
       }),
     }));
   });
