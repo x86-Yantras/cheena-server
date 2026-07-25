@@ -1,4 +1,4 @@
-import { getSwe, computeJulianDay, computeAscendantLongitude, computePlanetLongitude, resolveUtc } from './swissephService.js';
+import { getSwe, computeJulianDay, computeAscendantLongitude, computePlanetLongitude, computeBhavaMadhyas, resolveUtc } from './swissephService.js';
 import { computeVimshottariDasha } from './dashaCalculator.js';
 import { computeYogaDosha } from './yogaCalculator.js';
 import { RASHI_NAMES, NAKSHATRA_NAMES, PLANET_DEFS } from './astro-data.js';
@@ -64,6 +64,8 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
   const ascendantLongitude = await computeAscendantLongitude(jd, latitude, longitude);
   const ascendantRashi = rashiFromLongitude(ascendantLongitude);
   const ascendantNavamsaRashiIndex = navamsaRashiIndex(ascendantLongitude);
+  const ascendantHoraRashiIndex = horaRashiIndex(ascendantLongitude);
+  const bhavaMadhyas = await computeBhavaMadhyas(jd, latitude, longitude);
 
   const planets = [];
   for (const planetDef of PLANET_DEFS) {
@@ -79,6 +81,9 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
     const house = houseFromRashi(rashi.rashiIndex, ascendantRashi.rashiIndex);
     const navamsaIndex = navamsaRashiIndex(planetLongitude);
     const navamsaHouse = houseFromRashi(navamsaIndex, ascendantNavamsaRashiIndex);
+    const horaIndex = horaRashiIndex(planetLongitude);
+    const horaHouse = houseFromRashi(horaIndex, ascendantHoraRashiIndex);
+    const bhavchalitHouse = bhavaHouseFromLongitude(planetLongitude, bhavaMadhyas);
     planets.push({
       key: planetDef.key,
       name: planetDef.name,
@@ -91,6 +96,14 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
         rashiIndex: navamsaIndex,
         rashiName: RASHI_NAMES[navamsaIndex],
         house: navamsaHouse,
+      },
+      hora: {
+        rashiIndex: horaIndex,
+        rashiName: RASHI_NAMES[horaIndex],
+        house: horaHouse,
+      },
+      bhavchalit: {
+        house: bhavchalitHouse,
       },
     });
   }
@@ -107,6 +120,13 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
       navamsa: {
         rashiIndex: ascendantNavamsaRashiIndex,
         rashiName: RASHI_NAMES[ascendantNavamsaRashiIndex],
+      },
+      hora: {
+        rashiIndex: ascendantHoraRashiIndex,
+        rashiName: RASHI_NAMES[ascendantHoraRashiIndex],
+      },
+      bhavchalit: {
+        house: 1,
       },
     },
     planets,

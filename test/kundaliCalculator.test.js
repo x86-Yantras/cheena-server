@@ -106,6 +106,7 @@ describe('calculateKundali', () => {
           SUN: 10, MOON: 40, MARS: 70, MERCURY: 100,
           JUPITER: 130, VENUS: 160, SATURN: 190, RAHU: 220,
         },
+        bhavaMadhyas: [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330],
       }),
     }));
   });
@@ -147,6 +148,19 @@ describe('calculateKundali', () => {
     expect(first.ascendant.longitude).toBeCloseTo(second.ascendant.longitude, 8);
     expect(first.planets[0].longitude).toBeCloseTo(second.planets[0].longitude, 8);
   }, 20000);
+
+  it('includes hora and bhavchalit fields in valid ranges for every planet and the ascendant', async () => {
+    const result = await calculateKundali(input);
+    expect([3, 4]).toContain(result.ascendant.hora.rashiIndex);
+    expect(result.ascendant.bhavchalit.house).toBe(1);
+    for (const planet of result.planets) {
+      expect([3, 4]).toContain(planet.hora.rashiIndex);
+      expect(planet.hora.house).toBeGreaterThanOrEqual(1);
+      expect(planet.hora.house).toBeLessThanOrEqual(12);
+      expect(planet.bhavchalit.house).toBeGreaterThanOrEqual(1);
+      expect(planet.bhavchalit.house).toBeLessThanOrEqual(12);
+    }
+  }, 20000);
 });
 
 describe('calculateKundali (real-world regression case)', () => {
@@ -168,6 +182,7 @@ describe('calculateKundali (real-world regression case)', () => {
           SATURN: 2.93,
           RAHU: 120.55,
         },
+        bhavaMadhyas: [276.51, 306.51, 336.51, 6.51, 36.51, 66.51, 96.51, 126.51, 156.51, 186.51, 216.51, 246.51],
       }),
     }));
   });
