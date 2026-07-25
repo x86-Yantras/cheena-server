@@ -5,6 +5,8 @@ import {
   nakshatraFromLongitude,
   houseFromRashi,
   navamsaRashiIndex,
+  horaRashiIndex,
+  bhavaHouseFromLongitude,
 } from '../src/kundaliCalculator.js';
 
 describe('rashiFromLongitude', () => {
@@ -47,6 +49,47 @@ describe('navamsaRashiIndex', () => {
 
   it('maps just under 360 degrees back to Meena (wraps within the last sign)', () => {
     expect(navamsaRashiIndex(359.9999)).toBe(11);
+  });
+});
+
+describe('horaRashiIndex', () => {
+  it('maps the first half of an odd sign (Mesha) to Simha (Sun hora)', () => {
+    expect(horaRashiIndex(5)).toBe(4);
+  });
+
+  it('maps the second half of an odd sign (Mesha) to Karka (Moon hora)', () => {
+    expect(horaRashiIndex(20)).toBe(3);
+  });
+
+  it('maps the first half of an even sign (Vrishabha) to Karka (Moon hora)', () => {
+    expect(horaRashiIndex(35)).toBe(3);
+  });
+
+  it('maps the second half of an even sign (Vrishabha) to Simha (Sun hora)', () => {
+    expect(horaRashiIndex(50)).toBe(4);
+  });
+});
+
+describe('bhavaHouseFromLongitude', () => {
+  const evenlySpacedMadhyas = [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330];
+
+  it('places a longitude just past a house madhya into that house, when madhyas are evenly spaced', () => {
+    // Madhya-centered bhava: house 1 spans [345, 15), so 10 degrees falls in house 1.
+    expect(bhavaHouseFromLongitude(10, evenlySpacedMadhyas)).toBe(1);
+  });
+
+  it('places a longitude past the sandhi (boundary) into the next house', () => {
+    // Boundary between house 1 and house 2 is at 15 degrees.
+    expect(bhavaHouseFromLongitude(20, evenlySpacedMadhyas)).toBe(2);
+  });
+
+  it('handles the 0/360 degree wraparound between house 12 and house 1', () => {
+    const shiftedMadhyas = [20, 50, 80, 110, 140, 170, 200, 230, 260, 290, 320, 350];
+    // House 12's madhya is 350; the house-12/house-1 boundary is at 5 degrees.
+    // 359 degrees is just past the house-12 madhya, still within house 12.
+    expect(bhavaHouseFromLongitude(359, shiftedMadhyas)).toBe(12);
+    // 10 degrees is past the boundary at 5 degrees, so it's in house 1.
+    expect(bhavaHouseFromLongitude(10, shiftedMadhyas)).toBe(1);
   });
 });
 

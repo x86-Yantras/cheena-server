@@ -16,6 +16,36 @@ function navamsaRashiIndex(longitude) {
   return Math.floor(longitude / (30 / 9)) % 12;
 }
 
+const HORA_LEO_INDEX = 4;
+const HORA_CANCER_INDEX = 3;
+
+function horaRashiIndex(longitude) {
+  const signIndex = Math.floor(longitude / 30) % 12;
+  const degreeInSign = longitude % 30;
+  const isOddSign = signIndex % 2 === 0; // Mesha(0), Mithuna(2), ... are classically "odd" signs
+  const isFirstHalf = degreeInSign < 15;
+  if (isOddSign) return isFirstHalf ? HORA_LEO_INDEX : HORA_CANCER_INDEX;
+  return isFirstHalf ? HORA_CANCER_INDEX : HORA_LEO_INDEX;
+}
+
+function angularMidpoint(a, b) {
+  const signedDiff = ((b - a + 540) % 360) - 180; // shortest signed arc from a to b, in (-180, 180]
+  return (a + signedDiff / 2 + 360) % 360;
+}
+
+function bhavaHouseFromLongitude(longitude, madhyas) {
+  const boundaries = madhyas.map((madhya, i) => angularMidpoint(madhyas[(i - 1 + 12) % 12], madhya));
+  const normalizedLongitude = ((longitude % 360) + 360) % 360;
+  for (let house = 1; house <= 12; house++) {
+    const start = boundaries[house - 1];
+    const end = boundaries[house % 12];
+    const span = ((end - start) + 360) % 360;
+    const offset = ((normalizedLongitude - start) + 360) % 360;
+    if (offset < span) return house;
+  }
+  return 12;
+}
+
 function nakshatraFromLongitude(longitude) {
   const nakshatraIndex = Math.floor(longitude / NAKSHATRA_SPAN) % 27;
   const positionInNakshatra = longitude % NAKSHATRA_SPAN;
@@ -85,4 +115,4 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
   };
 }
 
-export { calculateKundali, rashiFromLongitude, nakshatraFromLongitude, houseFromRashi, navamsaRashiIndex };
+export { calculateKundali, rashiFromLongitude, nakshatraFromLongitude, houseFromRashi, navamsaRashiIndex, horaRashiIndex, bhavaHouseFromLongitude };
