@@ -70,4 +70,14 @@ describe('gemini adapter', () => {
 
     await expect(generate(BASE_ARGS)).rejects.toThrow(/truncated/i);
   });
+
+  it('throws a plain Error when non-OK response body is null', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => null,
+    }));
+
+    await expect(generate(BASE_ARGS)).rejects.toThrow('Gemini API returned 401');
+  });
 });

@@ -16,9 +16,9 @@ async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, max
     throw new Error(`Gemini API returned ${response.status} with an unparsable body`);
   }
   if (!response.ok) {
-    throw new Error(body.error?.message || `Gemini API returned ${response.status}`);
+    throw new Error(body?.error?.message || `Gemini API returned ${response.status}`);
   }
-  const candidate = body.candidates?.[0];
+  const candidate = body?.candidates?.[0];
   const text = candidate?.content?.parts?.[0]?.text;
   if (!text) {
     throw new Error('Gemini API returned no text content');
