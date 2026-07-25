@@ -33,6 +33,10 @@ function angularMidpoint(a, b) {
   return (a + signedDiff / 2 + 360) % 360;
 }
 
+function isValidBhavaMadhyas(madhyas) {
+  return Array.isArray(madhyas) && madhyas.length === 12 && madhyas.every((m) => Number.isFinite(m));
+}
+
 function bhavaHouseFromLongitude(longitude, madhyas) {
   const boundaries = madhyas.map((madhya, i) => angularMidpoint(madhyas[(i - 1 + 12) % 12], madhya));
   const normalizedLongitude = ((longitude % 360) + 360) % 360;
@@ -65,7 +69,14 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
   const ascendantRashi = rashiFromLongitude(ascendantLongitude);
   const ascendantNavamsaRashiIndex = navamsaRashiIndex(ascendantLongitude);
   const ascendantHoraRashiIndex = horaRashiIndex(ascendantLongitude);
-  const bhavaMadhyas = await computeBhavaMadhyas(jd, latitude, longitude);
+  const rawBhavaMadhyas = await computeBhavaMadhyas(jd, latitude, longitude);
+  // Graceful degrade (not a throw) when bhavaMadhyas is absent (upstream
+  // ephemeris service hasn't shipped the field yet) or malformed (present
+  // but not exactly 12 finite numbers) — in both cases we omit bhavchalit
+  // from the response rather than serving a silently wrong house (see
+  // bhavaHouseFromLongitude's NaN-comparison fallback) or 500ing the whole
+  // kundali request over one optional field.
+  const bhavaMadhyas = isValidBhavaMadhyas(rawBhavaMadhyas) ? rawBhavaMadhyas : undefined;
 
   const planets = [];
   for (const planetDef of PLANET_DEFS) {
@@ -83,7 +94,6 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
     const navamsaHouse = houseFromRashi(navamsaIndex, ascendantNavamsaRashiIndex);
     const horaIndex = horaRashiIndex(planetLongitude);
     const horaHouse = houseFromRashi(horaIndex, ascendantHoraRashiIndex);
-    const bhavchalitHouse = bhavaHouseFromLongitude(planetLongitude, bhavaMadhyas);
     planets.push({
       key: planetDef.key,
       name: planetDef.name,
@@ -102,9 +112,11 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
         rashiName: RASHI_NAMES[horaIndex],
         house: horaHouse,
       },
-      bhavchalit: {
-        house: bhavchalitHouse,
-      },
+      ...(bhavaMadhyas !== undefined && {
+        bhavchalit: {
+          house: bhavaHouseFromLongitude(planetLongitude, bhavaMadhyas),
+        },
+      }),
     });
   }
 
@@ -125,9 +137,11 @@ async function calculateKundali({ date, time, latitude, longitude, timezone }) {
         rashiIndex: ascendantHoraRashiIndex,
         rashiName: RASHI_NAMES[ascendantHoraRashiIndex],
       },
-      bhavchalit: {
-        house: 1,
-      },
+      ...(bhavaMadhyas !== undefined && {
+        bhavchalit: {
+          house: 1,
+        },
+      }),
     },
     planets,
     dasha,

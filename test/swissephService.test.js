@@ -150,4 +150,21 @@ describe('swissephService (HTTP client)', () => {
   it('computeBhavaMadhyas throws when called before computeJulianDay for that location', async () => {
     await expect(computeBhavaMadhyas(2451545.0, 1.23, 4.56)).rejects.toThrow(/no cached bhava madhyas/i);
   });
+
+  it('computeBhavaMadhyas returns undefined (not throw) when computeJulianDay succeeded but the response lacked bhavaMadhyas', async () => {
+    const { bhavaMadhyas, ...responseWithoutBhavaMadhyas } = MOCK_RESPONSE;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => responseWithoutBhavaMadhyas,
+    });
+    const jd = await computeJulianDay('2000-01-01', '12:00', 51.5074, -0.1278, 'UTC');
+    await expect(computeBhavaMadhyas(jd, 51.5074, -0.1278)).resolves.toBeUndefined();
+  });
+
+  it('computeBhavaMadhyas still throws when computeJulianDay was never called for that jd/location at all', async () => {
+    // Distinct from the "field absent from a present response" case above:
+    // here no cached response exists at all for this jd/location, which is
+    // a real programming error (caller forgot to call computeJulianDay).
+    await expect(computeBhavaMadhyas(9999999.0, 12.34, 56.78)).rejects.toThrow(/no cached bhava madhyas/i);
+  });
 });

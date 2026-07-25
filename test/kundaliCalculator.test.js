@@ -163,6 +163,83 @@ describe('calculateKundali', () => {
   }, 20000);
 });
 
+describe('calculateKundali (bhavaMadhyas graceful degrade)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const input = { date: '1990-05-15', time: '14:30', latitude: 40.7128, longitude: -74.006 };
+
+  const baseResponse = {
+    julianDay: 2448026.5,
+    ascendantLongitude: 15,
+    planetLongitudes: {
+      SUN: 10, MOON: 40, MARS: 70, MERCURY: 100,
+      JUPITER: 130, VENUS: 160, SATURN: 190, RAHU: 220,
+    },
+  };
+
+  it('omits bhavchalit from planets and ascendant when the ephemeris response lacks bhavaMadhyas, while still returning everything else', async () => {
+    process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
+    process.env.EPHEMERIS_SERVICE_API_KEY = 'test-api-key';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...baseResponse }), // no bhavaMadhyas field at all
+    }));
+
+    const result = await calculateKundali(input);
+
+    expect('bhavchalit' in result.ascendant).toBe(false);
+    expect(result.planets).toHaveLength(9);
+    for (const planet of result.planets) {
+      expect('bhavchalit' in planet).toBe(false);
+      expect(planet.rashiIndex).toBeGreaterThanOrEqual(0);
+      expect(planet.house).toBeGreaterThanOrEqual(1);
+      expect(planet.house).toBeLessThanOrEqual(12);
+      expect(planet.navamsa.house).toBeGreaterThanOrEqual(1);
+      expect(planet.hora.house).toBeGreaterThanOrEqual(1);
+    }
+    expect(result.ascendant.rashiIndex).toBeGreaterThanOrEqual(0);
+    expect(result.dasha.mahadashas).toHaveLength(9);
+    expect(result.yogaDosha).toBeDefined();
+  }, 20000);
+
+  it('omits bhavchalit when bhavaMadhyas is present but malformed (wrong length)', async () => {
+    process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
+    process.env.EPHEMERIS_SERVICE_API_KEY = 'test-api-key';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ...baseResponse, bhavaMadhyas: [0, 30, 60] }), // only 3 entries
+    }));
+
+    const result = await calculateKundali(input);
+
+    expect('bhavchalit' in result.ascendant).toBe(false);
+    for (const planet of result.planets) {
+      expect('bhavchalit' in planet).toBe(false);
+    }
+  }, 20000);
+
+  it('omits bhavchalit when bhavaMadhyas contains a NaN', async () => {
+    process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
+    process.env.EPHEMERIS_SERVICE_API_KEY = 'test-api-key';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...baseResponse,
+        bhavaMadhyas: [0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, NaN],
+      }),
+    }));
+
+    const result = await calculateKundali(input);
+
+    expect('bhavchalit' in result.ascendant).toBe(false);
+    for (const planet of result.planets) {
+      expect('bhavchalit' in planet).toBe(false);
+    }
+  }, 20000);
+});
+
 describe('calculateKundali (real-world regression case)', () => {
   beforeEach(() => {
     process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
