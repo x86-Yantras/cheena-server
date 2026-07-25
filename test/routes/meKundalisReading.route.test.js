@@ -113,6 +113,82 @@ describe('GET /api/me/kundalis/:id/reading', () => {
     expect(response.status).toBe(400);
   }, 20000);
 
+  it('returns 400 for an unknown provider override', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'badprovider@example.com');
+    const kundaliId = await createKundali(app, token);
+
+    const response = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}/reading?provider=bogus`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(response.status).toBe(400);
+  }, 20000);
+
+  it('passes provider/model overrides through and does not cache or count against quota', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'override@example.com');
+    const kundaliId = await createKundali(app, token);
+    process.env.GEMINI_API_KEY = 'test-gemini-key';
+
+    fetchMock.mockImplementation(async (url) => {
+      if (String(url).includes('ephemeris')) {
+        return {
+          ok: true,
+          json: async () => ({
+            julianDay: 2448026.5,
+            ascendantLongitude: 15,
+            planetLongitudes: {
+              SUN: 10, MOON: 40, MARS: 70, MERCURY: 100,
+              JUPITER: 130, VENUS: 160, SATURN: 190, RAHU: 220,
+            },
+          }),
+        };
+      }
+      if (String(url).includes('generativelanguage.googleapis.com')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: 'A Gemini test reading.' }] }, finishReason: 'STOP' }],
+          }),
+        };
+      }
+      // Anthropic (default provider) shape
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ content: [{ type: 'text', text: 'Generated reading text.' }] }),
+      };
+    });
+
+    const overrideResponse = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}/reading?provider=gemini&model=gemini-1.5-pro`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(overrideResponse.status).toBe(200);
+    expect(overrideResponse.body.content).toBe('A Gemini test reading.');
+    const [overrideUrl] = fetchMock.mock.calls.find((c) => !String(c[0]).includes('ephemeris'));
+    expect(overrideUrl).toContain('gemini-1.5-pro');
+
+    const { rows: cachedRows } = await getPool().query(
+      'SELECT * FROM ai_readings WHERE kundali_id = $1 AND area = $2',
+      [kundaliId, 'overview']
+    );
+    expect(cachedRows).toHaveLength(0);
+
+    const usersRes = await getPool().query('SELECT id FROM users WHERE email = $1', ['override@example.com']);
+    const usageRows = await getPool().query(
+      'SELECT count FROM ai_reading_usage WHERE user_id = $1 AND usage_date = CURRENT_DATE',
+      [usersRes.rows[0].id]
+    );
+    expect(usageRows.rows).toHaveLength(0);
+
+    const defaultResponse = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}/reading`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(defaultResponse.status).toBe(200);
+    expect(defaultResponse.body.cached).toBe(false);
+  }, 20000);
+
   it('generates and returns a reading, defaulting to the overview area', async () => {
     const app = createApp();
     const token = await registerAndLogin(app, 'gen@example.com');

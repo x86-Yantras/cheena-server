@@ -147,6 +147,10 @@ router.get('/:id/reading', async (req, res) => {
     res.status(400).json({ error: `area must be one of: ${VALID_AREAS.join(', ')}` });
     return;
   }
+  const provider = typeof req.query.provider === 'string' ? req.query.provider : undefined;
+  const model = typeof req.query.model === 'string' ? req.query.model : undefined;
+  const isOverride = provider !== undefined || model !== undefined;
+
   try {
     const pool = getPool();
     const { rows: kundaliRows } = await pool.query(
@@ -158,36 +162,46 @@ router.get('/:id/reading', async (req, res) => {
       return;
     }
 
-    const { rows: cachedRows } = await pool.query(
-      'SELECT content FROM ai_readings WHERE kundali_id = $1 AND area = $2',
-      [req.params.id, area]
-    );
-    if (cachedRows.length > 0) {
-      res.json({ area, content: cachedRows[0].content, cached: true });
-      return;
-    }
+    if (!isOverride) {
+      const { rows: cachedRows } = await pool.query(
+        'SELECT content FROM ai_readings WHERE kundali_id = $1 AND area = $2',
+        [req.params.id, area]
+      );
+      if (cachedRows.length > 0) {
+        res.json({ area, content: cachedRows[0].content, cached: true });
+        return;
+      }
 
-    const { rows: usageRows } = await pool.query(
-      `INSERT INTO ai_reading_usage (user_id, usage_date, count) VALUES ($1, CURRENT_DATE, 1)
-       ON CONFLICT (user_id, usage_date) DO UPDATE SET count = ai_reading_usage.count + 1
-       RETURNING count`,
-      [req.userId]
-    );
-    if (usageRows[0].count > DAILY_READING_LIMIT) {
-      res.status(429).json({ error: 'daily AI reading limit reached, try again tomorrow' });
-      return;
+      const { rows: usageRows } = await pool.query(
+        `INSERT INTO ai_reading_usage (user_id, usage_date, count) VALUES ($1, CURRENT_DATE, 1)
+         ON CONFLICT (user_id, usage_date) DO UPDATE SET count = ai_reading_usage.count + 1
+         RETURNING count`,
+        [req.userId]
+      );
+      if (usageRows[0].count > DAILY_READING_LIMIT) {
+        res.status(429).json({ error: 'daily AI reading limit reached, try again tomorrow' });
+        return;
+      }
     }
 
     let content;
     try {
-      content = await generateReading({ result: kundaliRows[0].result, area });
+      content = await generateReading({ result: kundaliRows[0].result, area, provider, model });
     } catch (err) {
       console.error(err);
-      await pool.query(
-        'UPDATE ai_reading_usage SET count = count - 1 WHERE user_id = $1 AND usage_date = CURRENT_DATE',
-        [req.userId]
-      );
-      res.status(502).json({ error: 'reading unavailable, try again' });
+      if (!isOverride) {
+        await pool.query(
+          'UPDATE ai_reading_usage SET count = count - 1 WHERE user_id = $1 AND usage_date = CURRENT_DATE',
+          [req.userId]
+        );
+      }
+      const status = err.message.startsWith('Unknown provider:') ? 400 : 502;
+      res.status(status).json({ error: status === 400 ? err.message : 'reading unavailable, try again' });
+      return;
+    }
+
+    if (isOverride) {
+      res.json({ area, content, cached: false });
       return;
     }
 
