@@ -29,18 +29,20 @@ New `kundali-backend/src/ai/` module:
 
 ```json
 {
-  "default": { "provider": "anthropic", "model": "claude-haiku-4-5-20251001" },
+  "defaultProvider": "anthropic",
   "providers": {
-    "anthropic": { "format": "anthropic", "apiKeyEnv": "ANTHROPIC_API_KEY", "baseUrl": "https://api.anthropic.com/v1/messages" },
-    "openai":    { "format": "openai",    "apiKeyEnv": "OPENAI_API_KEY",    "baseUrl": "https://api.openai.com/v1/chat/completions" },
-    "gemini":    { "format": "gemini",    "apiKeyEnv": "GEMINI_API_KEY",    "baseUrl": "https://generativelanguage.googleapis.com/v1beta/models" },
-    "groq":      { "format": "openai",    "apiKeyEnv": "GROQ_API_KEY",      "baseUrl": "https://api.groq.com/openai/v1/chat/completions" },
-    "openrouter":{ "format": "openai",    "apiKeyEnv": "OPENROUTER_API_KEY","baseUrl": "https://openrouter.ai/api/v1/chat/completions" }
+    "anthropic": { "format": "anthropic", "apiKeyEnv": "ANTHROPIC_API_KEY", "baseUrl": "https://api.anthropic.com/v1/messages", "defaultModel": "claude-haiku-4-5-20251001" },
+    "openai":    { "format": "openai",    "apiKeyEnv": "OPENAI_API_KEY",    "baseUrl": "https://api.openai.com/v1/chat/completions", "defaultModel": "gpt-4o-mini" },
+    "gemini":    { "format": "gemini",    "apiKeyEnv": "GEMINI_API_KEY",    "baseUrl": "https://generativelanguage.googleapis.com/v1beta/models", "defaultModel": "gemini-2.0-flash" },
+    "groq":      { "format": "openai",    "apiKeyEnv": "GROQ_API_KEY",      "baseUrl": "https://api.groq.com/openai/v1/chat/completions", "defaultModel": "llama-3.3-70b-versatile" },
+    "openrouter":{ "format": "openai",    "apiKeyEnv": "OPENROUTER_API_KEY","baseUrl": "https://openrouter.ai/api/v1/chat/completions", "defaultModel": "meta-llama/llama-3.3-70b-instruct:free" }
   }
 }
 ```
 
 `format` selects which adapter handles the request (`anthropic`, `gemini`, or `openai` for any OpenAI-compatible provider). Adding a new OpenAI-compatible provider requires only a new entry in `providers` — no code change. API keys are never stored in this file; only the name of the env var holding each key.
+
+Each provider carries its own `defaultModel` (not one global default) — overriding `provider` alone (e.g. `?provider=gemini`) must not fall back to another provider's model name.
 
 `.env.example` gains `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY` placeholders alongside the existing `ANTHROPIC_API_KEY`.
 
@@ -50,7 +52,8 @@ The reading route accepts optional `?provider=` and `?model=` query params.
 
 - `provider`, if given, must match a key in `config.providers` (whitelist check) — unknown provider returns `400` with a clear error. This prevents a query param from injecting an arbitrary `baseUrl`/adapter.
 - `model`, if given, is passed through to the provider as-is — no whitelist, since a bad model name simply produces a provider-side error, not a security concern.
-- If either is omitted, `config.default` supplies it.
+- If `provider` is omitted, `config.defaultProvider` supplies it; if `model` is omitted, the resolved provider's own `defaultModel` supplies it (never another provider's default).
+- When either `provider` or `model` is explicitly overridden, the route **bypasses the `ai_readings` cache read/write and the daily quota counter** for that request. Without this, a one-off test call to Gemini would get cached under `(kundali_id, area)` and silently served back as the "reading" for that area afterward (including to the default Anthropic path), and would burn the user's daily quota for what is a dev/test comparison, not a real reading request.
 
 ## Error handling
 
