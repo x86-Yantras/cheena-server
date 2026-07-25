@@ -22,7 +22,7 @@ async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, max
     throw new Error(`Provider API returned ${response.status} with an unparsable body`);
   }
   if (!response.ok) {
-    throw new Error(body.error?.message || `Provider API returned ${response.status}`);
+    throw new Error(body?.error?.message || `Provider API returned ${response.status}`);
   }
   const choice = body.choices?.[0];
   const text = choice?.message?.content;
