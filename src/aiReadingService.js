@@ -36,9 +36,10 @@ async function generateReading({ result, area }) {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
     },
+    signal: AbortSignal.timeout(30_000),
     body: JSON.stringify({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 500,
+      max_tokens: 1024,
       system: 'You are a Vedic astrologer writing plain-language chart readings. Be warm and specific to the given placements. Include one brief line noting this is for guidance/entertainment. Keep it to 3-5 short paragraphs.',
       messages: [
         {
@@ -60,6 +61,9 @@ async function generateReading({ result, area }) {
   const text = body.content?.[0]?.text;
   if (!text) {
     throw new Error('Anthropic API returned no text content');
+  }
+  if (body.stop_reason === 'max_tokens') {
+    throw new Error('Anthropic API response was truncated (max_tokens reached)');
   }
   return text;
 }

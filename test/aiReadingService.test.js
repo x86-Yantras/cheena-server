@@ -78,4 +78,34 @@ describe('aiReadingService', () => {
     await expect(generateReading({ result: SAMPLE_RESULT, area: 'overview' }))
       .rejects.toThrow('Anthropic API returned no text content');
   });
+
+  it('throws when the response was truncated (stop_reason max_tokens), instead of returning partial text', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        content: [{ type: 'text', text: 'This reading got cut off mid-sen' }],
+        stop_reason: 'max_tokens',
+      }),
+    }));
+
+    await expect(generateReading({ result: SAMPLE_RESULT, area: 'overview' }))
+      .rejects.toThrow(/truncated/i);
+  });
+
+  it('requests a higher max_tokens ceiling and sets a request timeout', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ content: [{ type: 'text', text: 'A reading.' }], stop_reason: 'end_turn' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await generateReading({ result: SAMPLE_RESULT, area: 'overview' });
+
+    const [, options] = fetchMock.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.max_tokens).toBe(1024);
+    expect(options.signal).toBeInstanceOf(AbortSignal);
+  });
 });

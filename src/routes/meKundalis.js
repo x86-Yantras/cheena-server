@@ -105,6 +105,9 @@ router.patch('/:id', async (req, res) => {
       res.status(404).json({ error: 'kundali not found' });
       return;
     }
+    if (result != null) {
+      await pool.query('DELETE FROM ai_readings WHERE kundali_id = $1', [req.params.id]);
+    }
     res.json(rows[0]);
   } catch (err) {
     console.error(err);

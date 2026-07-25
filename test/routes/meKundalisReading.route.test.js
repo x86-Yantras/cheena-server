@@ -128,6 +128,68 @@ describe('GET /api/me/kundalis/:id/reading', () => {
     expect(response.body.cached).toBe(false);
   }, 20000);
 
+  it('invalidates the cached reading when the kundali is PATCHed with a new result', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'invalidate@example.com');
+    const kundaliId = await createKundali(app, token);
+
+    const firstReading = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}/reading`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(firstReading.body.cached).toBe(false);
+
+    const cachedBefore = await getPool().query(
+      'SELECT * FROM ai_readings WHERE kundali_id = $1',
+      [kundaliId]
+    );
+    expect(cachedBefore.rows).toHaveLength(1);
+
+    const kundaliResponse = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${token}`);
+    const newResult = { ...kundaliResponse.body.result, julianDay: 1234567 };
+
+    const patchResponse = await request(app)
+      .patch(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ label: 'Self', name: 'Aarav Sharma', result: newResult });
+    expect(patchResponse.status).toBe(200);
+
+    const cachedAfter = await getPool().query(
+      'SELECT * FROM ai_readings WHERE kundali_id = $1',
+      [kundaliId]
+    );
+    expect(cachedAfter.rows).toHaveLength(0);
+
+    const secondReading = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}/reading`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(secondReading.status).toBe(200);
+    expect(secondReading.body.cached).toBe(false);
+  }, 20000);
+
+  it('does not invalidate the cached reading when PATCHed without a new result', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'no-invalidate@example.com');
+    const kundaliId = await createKundali(app, token);
+
+    await request(app)
+      .get(`/api/me/kundalis/${kundaliId}/reading`)
+      .set('Authorization', `Bearer ${token}`);
+
+    const patchResponse = await request(app)
+      .patch(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ label: 'Self Renamed', name: 'Aarav Sharma' });
+    expect(patchResponse.status).toBe(200);
+
+    const cachedAfter = await getPool().query(
+      'SELECT * FROM ai_readings WHERE kundali_id = $1',
+      [kundaliId]
+    );
+    expect(cachedAfter.rows).toHaveLength(1);
+  }, 20000);
+
   it('returns a cached reading on the second request without calling the API again', async () => {
     const app = createApp();
     const token = await registerAndLogin(app, 'cache@example.com');
