@@ -3,8 +3,11 @@ import { getPool } from '../db/pool.js';
 import { requireAuth } from '../auth/authMiddleware.js';
 import { validateKundaliInput } from '../validators/kundaliInput.js';
 import { calculateKundali } from '../kundaliCalculator.js';
+import { generateReading, VALID_AREAS } from '../aiReadingService.js';
 
 const router = Router();
+
+const DAILY_READING_LIMIT = 10;
 
 router.use(requireAuth);
 
@@ -125,6 +128,72 @@ router.delete('/:id', async (req, res) => {
       return;
     }
     res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'internal server error' });
+  }
+});
+
+router.get('/:id/reading', async (req, res) => {
+  if (!/^\d+$/.test(req.params.id)) {
+    res.status(404).json({ error: 'kundali not found' });
+    return;
+  }
+  const area = typeof req.query.area === 'string' ? req.query.area : 'overview';
+  if (!VALID_AREAS.includes(area)) {
+    res.status(400).json({ error: `area must be one of: ${VALID_AREAS.join(', ')}` });
+    return;
+  }
+  try {
+    const pool = getPool();
+    const { rows: kundaliRows } = await pool.query(
+      'SELECT result FROM kundalis WHERE id = $1 AND user_id = $2',
+      [req.params.id, req.userId]
+    );
+    if (kundaliRows.length === 0) {
+      res.status(404).json({ error: 'kundali not found' });
+      return;
+    }
+
+    const { rows: cachedRows } = await pool.query(
+      'SELECT content FROM ai_readings WHERE kundali_id = $1 AND area = $2',
+      [req.params.id, area]
+    );
+    if (cachedRows.length > 0) {
+      res.json({ area, content: cachedRows[0].content, cached: true });
+      return;
+    }
+
+    const { rows: usageRows } = await pool.query(
+      'SELECT count FROM ai_reading_usage WHERE user_id = $1 AND usage_date = CURRENT_DATE',
+      [req.userId]
+    );
+    const usedToday = usageRows[0]?.count ?? 0;
+    if (usedToday >= DAILY_READING_LIMIT) {
+      res.status(429).json({ error: 'daily AI reading limit reached, try again tomorrow' });
+      return;
+    }
+
+    let content;
+    try {
+      content = await generateReading({ result: kundaliRows[0].result, area });
+    } catch (err) {
+      console.error(err);
+      res.status(502).json({ error: 'reading unavailable, try again' });
+      return;
+    }
+
+    await pool.query(
+      'INSERT INTO ai_readings (kundali_id, area, content) VALUES ($1, $2, $3)',
+      [req.params.id, area, content]
+    );
+    await pool.query(
+      `INSERT INTO ai_reading_usage (user_id, usage_date, count) VALUES ($1, CURRENT_DATE, 1)
+       ON CONFLICT (user_id, usage_date) DO UPDATE SET count = ai_reading_usage.count + 1`,
+      [req.userId]
+    );
+
+    res.json({ area, content, cached: false });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'internal server error' });
