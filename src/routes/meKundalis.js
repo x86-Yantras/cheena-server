@@ -180,6 +180,10 @@ router.get('/:id/reading', async (req, res) => {
       content = await generateReading({ result: kundaliRows[0].result, area });
     } catch (err) {
       console.error(err);
+      await pool.query(
+        'UPDATE ai_reading_usage SET count = count - 1 WHERE user_id = $1 AND usage_date = CURRENT_DATE',
+        [req.userId]
+      );
       res.status(502).json({ error: 'reading unavailable, try again' });
       return;
     }

@@ -279,4 +279,51 @@ describe('GET /api/me/kundalis/:id/reading', () => {
     const { rows } = await getPool().query('SELECT * FROM ai_readings WHERE kundali_id = $1', [kundaliId]);
     expect(rows).toHaveLength(0);
   }, 20000);
+
+  it('does not consume daily quota when the Anthropic API call fails', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'noquota@example.com');
+    const kundaliId = await createKundali(app, token);
+
+    // First, a successful generation to establish a baseline usage count.
+    await request(app)
+      .get(`/api/me/kundalis/${kundaliId}/reading?area=overview`)
+      .set('Authorization', `Bearer ${token}`);
+
+    const usersRes = await getPool().query('SELECT id FROM users WHERE email = $1', ['noquota@example.com']);
+    const userId = usersRes.rows[0].id;
+    const before = await getPool().query(
+      'SELECT count FROM ai_reading_usage WHERE user_id = $1 AND usage_date = CURRENT_DATE',
+      [userId]
+    );
+    expect(before.rows[0].count).toBe(1);
+
+    fetchMock.mockImplementation(async (url) => {
+      if (String(url).includes('ephemeris')) {
+        return {
+          ok: true,
+          json: async () => ({
+            julianDay: 2448026.5,
+            ascendantLongitude: 15,
+            planetLongitudes: {
+              SUN: 10, MOON: 40, MARS: 70, MERCURY: 100,
+              JUPITER: 130, VENUS: 160, SATURN: 190, RAHU: 220,
+            },
+          }),
+        };
+      }
+      return { ok: false, status: 500, json: async () => ({ error: { message: 'overloaded' } }) };
+    });
+
+    const response = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}/reading?area=career`)
+      .set('Authorization', `Bearer ${token}`);
+    expect(response.status).toBe(502);
+
+    const after = await getPool().query(
+      'SELECT count FROM ai_reading_usage WHERE user_id = $1 AND usage_date = CURRENT_DATE',
+      [userId]
+    );
+    expect(after.rows[0].count).toBe(1);
+  }, 20000);
 });
