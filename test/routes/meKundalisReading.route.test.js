@@ -189,6 +189,25 @@ describe('GET /api/me/kundalis/:id/reading', () => {
     expect(defaultResponse.body.cached).toBe(false);
   }, 20000);
 
+  it('treats an empty-string provider/model override as absent (caches and counts against quota)', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'emptyoverride@example.com');
+    const kundaliId = await createKundali(app, token);
+
+    const response = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}/reading?provider=&model=`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.cached).toBe(false);
+
+    const { rows } = await getPool().query(
+      'SELECT * FROM ai_readings WHERE kundali_id = $1 AND area = $2',
+      [kundaliId, 'overview']
+    );
+    expect(rows).toHaveLength(1);
+  }, 20000);
+
   it('generates and returns a reading, defaulting to the overview area', async () => {
     const app = createApp();
     const token = await registerAndLogin(app, 'gen@example.com');

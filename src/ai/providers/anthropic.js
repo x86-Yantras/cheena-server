@@ -21,9 +21,9 @@ async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, max
     throw new Error(`Anthropic API returned ${response.status} with an unparsable body`);
   }
   if (!response.ok) {
-    throw new Error(body.error?.message || `Anthropic API returned ${response.status}`);
+    throw new Error(body?.error?.message || `Anthropic API returned ${response.status}`);
   }
-  const text = body.content?.[0]?.text;
+  const text = body?.content?.[0]?.text;
   if (!text) {
     throw new Error('Anthropic API returned no text content');
   }

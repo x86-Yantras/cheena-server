@@ -147,8 +147,8 @@ router.get('/:id/reading', async (req, res) => {
     res.status(400).json({ error: `area must be one of: ${VALID_AREAS.join(', ')}` });
     return;
   }
-  const provider = typeof req.query.provider === 'string' ? req.query.provider : undefined;
-  const model = typeof req.query.model === 'string' ? req.query.model : undefined;
+  const provider = typeof req.query.provider === 'string' && req.query.provider !== '' ? req.query.provider : undefined;
+  const model = typeof req.query.model === 'string' && req.query.model !== '' ? req.query.model : undefined;
   const isOverride = provider !== undefined || model !== undefined;
 
   try {

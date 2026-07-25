@@ -47,6 +47,9 @@ async function generateReading({ result, area, provider, model }) {
   const userContent = `${AREA_PROMPTS[area]}\n\nChart data (rashi index 0=Mesha..11=Meena, house is 1-12 from ascendant):\n${JSON.stringify(chartSummary)}`;
 
   const adapter = ADAPTERS_BY_FORMAT[providerConfig.format];
+  if (!adapter) {
+    throw new Error(`No adapter for provider format: ${providerConfig.format}`);
+  }
   return adapter({
     apiKey: providerConfig.apiKey,
     baseUrl: providerConfig.baseUrl,

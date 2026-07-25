@@ -47,6 +47,16 @@ describe('anthropic adapter', () => {
     await expect(generate(BASE_ARGS)).rejects.toThrow('overloaded');
   });
 
+  it('throws with status-code fallback on a non-OK response with null body', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => null,
+    }));
+
+    await expect(generate(BASE_ARGS)).rejects.toThrow('Anthropic API returned 503');
+  });
+
   it('throws when there is no text content', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,

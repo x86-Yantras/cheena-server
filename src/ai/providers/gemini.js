@@ -1,5 +1,5 @@
 async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, maxTokens, timeoutMs }) {
-  const response = await fetch(`${baseUrl}/${model}:generateContent?key=${apiKey}`, {
+  const response = await fetch(`${baseUrl}/${encodeURIComponent(model)}:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     signal: AbortSignal.timeout(timeoutMs),

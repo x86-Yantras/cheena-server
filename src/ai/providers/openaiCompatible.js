@@ -24,7 +24,7 @@ async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, max
   if (!response.ok) {
     throw new Error(body?.error?.message || `Provider API returned ${response.status}`);
   }
-  const choice = body.choices?.[0];
+  const choice = body?.choices?.[0];
   const text = choice?.message?.content;
   if (!text) {
     throw new Error('Provider API returned no text content');
