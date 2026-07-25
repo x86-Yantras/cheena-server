@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getSwe, resolveUtc, computeJulianDay, computeAscendantLongitude, computePlanetLongitude } from '../src/swissephService.js';
+import { getSwe, resolveUtc, computeJulianDay, computeAscendantLongitude, computePlanetLongitude, computeBhavaMadhyas } from '../src/swissephService.js';
 
 const MOCK_RESPONSE = {
   julianDay: 2451545.0,
@@ -8,6 +8,7 @@ const MOCK_RESPONSE = {
     SUN: 10.1, MOON: 20.2, MARS: 30.3, MERCURY: 40.4,
     JUPITER: 50.5, VENUS: 60.6, SATURN: 70.7, RAHU: 80.8,
   },
+  bhavaMadhyas: [5, 35, 65, 95, 125, 155, 185, 215, 245, 275, 305, 335],
 };
 
 describe('swissephService (HTTP client)', () => {
@@ -137,5 +138,16 @@ describe('swissephService (HTTP client)', () => {
     const ascBoston = await computeAscendantLongitude(jdBoston, 42.3601, -71.0589);
     expect(ascNewYork).toBe(10.0);
     expect(ascBoston).toBe(200.0);
+  });
+
+  it('computeBhavaMadhyas reuses the cached response from computeJulianDay for the same jd/location', async () => {
+    const jd = await computeJulianDay('2000-01-01', '12:00', 51.5074, -0.1278, 'UTC');
+    const madhyas = await computeBhavaMadhyas(jd, 51.5074, -0.1278);
+    expect(madhyas).toEqual(MOCK_RESPONSE.bhavaMadhyas);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('computeBhavaMadhyas throws when called before computeJulianDay for that location', async () => {
+    await expect(computeBhavaMadhyas(2451545.0, 1.23, 4.56)).rejects.toThrow(/no cached bhava madhyas/i);
   });
 });

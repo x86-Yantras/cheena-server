@@ -21,6 +21,7 @@ const CACHE_TTL_MS = 30000;
 // other's ascendant. Cache the two independently, keyed accordingly.
 const planetLongitudesCache = new Map(); // jd -> planetLongitudes
 const ascendantCache = new Map(); // `${jd}|${latitude}|${longitude}` -> ascendantLongitude
+const bhavaMadhyasCache = new Map(); // `${jd}|${latitude}|${longitude}` -> bhavaMadhyas[]
 
 function scheduleEviction(cache, key) {
   const timer = setTimeout(() => cache.delete(key), CACHE_TTL_MS);
@@ -70,12 +71,14 @@ async function computeJulianDay(dateStr, timeStr, latitude, longitude, timezone)
   if (!response.ok) {
     throw new Error(body.error || `Ephemeris service returned ${response.status}`);
   }
-  const { julianDay, ascendantLongitude, planetLongitudes } = body;
+  const { julianDay, ascendantLongitude, planetLongitudes, bhavaMadhyas } = body;
   planetLongitudesCache.set(julianDay, planetLongitudes);
   scheduleEviction(planetLongitudesCache, julianDay);
   const ascKey = ascendantCacheKey(julianDay, latitude, longitude);
   ascendantCache.set(ascKey, ascendantLongitude);
   scheduleEviction(ascendantCache, ascKey);
+  bhavaMadhyasCache.set(ascKey, bhavaMadhyas);
+  scheduleEviction(bhavaMadhyasCache, ascKey);
   return julianDay;
 }
 
@@ -96,4 +99,13 @@ async function computePlanetLongitude(jd, sweConst) {
   return cached[sweConst];
 }
 
-export { getSwe, resolveUtc, computeJulianDay, computeAscendantLongitude, computePlanetLongitude };
+async function computeBhavaMadhyas(jd, latitude, longitude) {
+  const key = ascendantCacheKey(jd, latitude, longitude);
+  const cached = bhavaMadhyasCache.get(key);
+  if (cached === undefined) {
+    throw new Error(`No cached bhava madhyas for julian day ${jd} at (${latitude}, ${longitude}). computeJulianDay must be called first with the same coordinates.`);
+  }
+  return cached;
+}
+
+export { getSwe, resolveUtc, computeJulianDay, computeAscendantLongitude, computePlanetLongitude, computeBhavaMadhyas };
