@@ -202,6 +202,53 @@ describe('GET /api/me/kundalis/:id/reading', () => {
     expect(overLimit.status).toBe(429);
   }, 30000);
 
+  it('returns the winning cached reading when a concurrent request already inserted it (unique-violation race)', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'race@example.com');
+    const kundaliId = await createKundali(app, token);
+
+    // Simulate another concurrent request "winning" the generation and inserting
+    // its row into ai_readings while our request's Anthropic call is still in flight.
+    fetchMock.mockImplementation(async (url) => {
+      if (String(url).includes('ephemeris')) {
+        return {
+          ok: true,
+          json: async () => ({
+            julianDay: 2448026.5,
+            ascendantLongitude: 15,
+            planetLongitudes: {
+              SUN: 10, MOON: 40, MARS: 70, MERCURY: 100,
+              JUPITER: 130, VENUS: 160, SATURN: 190, RAHU: 220,
+            },
+          }),
+        };
+      }
+      await getPool().query(
+        'INSERT INTO ai_readings (kundali_id, area, content) VALUES ($1, $2, $3)',
+        [kundaliId, 'overview', 'Winning concurrent reading.']
+      );
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ content: [{ type: 'text', text: 'Losing generated text.' }] }),
+      };
+    });
+
+    const response = await request(app)
+      .get(`/api/me/kundalis/${kundaliId}/reading`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.cached).toBe(true);
+    expect(response.body.content).toBe('Winning concurrent reading.');
+
+    const { rows } = await getPool().query(
+      'SELECT * FROM ai_readings WHERE kundali_id = $1 AND area = $2',
+      [kundaliId, 'overview']
+    );
+    expect(rows).toHaveLength(1);
+  }, 20000);
+
   it('returns 502 and caches nothing when the Anthropic API call fails', async () => {
     const app = createApp();
     const token = await registerAndLogin(app, 'fail@example.com');

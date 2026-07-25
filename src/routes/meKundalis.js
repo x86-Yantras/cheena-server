@@ -165,11 +165,12 @@ router.get('/:id/reading', async (req, res) => {
     }
 
     const { rows: usageRows } = await pool.query(
-      'SELECT count FROM ai_reading_usage WHERE user_id = $1 AND usage_date = CURRENT_DATE',
+      `INSERT INTO ai_reading_usage (user_id, usage_date, count) VALUES ($1, CURRENT_DATE, 1)
+       ON CONFLICT (user_id, usage_date) DO UPDATE SET count = ai_reading_usage.count + 1
+       RETURNING count`,
       [req.userId]
     );
-    const usedToday = usageRows[0]?.count ?? 0;
-    if (usedToday >= DAILY_READING_LIMIT) {
+    if (usageRows[0].count > DAILY_READING_LIMIT) {
       res.status(429).json({ error: 'daily AI reading limit reached, try again tomorrow' });
       return;
     }
@@ -183,15 +184,22 @@ router.get('/:id/reading', async (req, res) => {
       return;
     }
 
-    await pool.query(
-      'INSERT INTO ai_readings (kundali_id, area, content) VALUES ($1, $2, $3)',
-      [req.params.id, area, content]
-    );
-    await pool.query(
-      `INSERT INTO ai_reading_usage (user_id, usage_date, count) VALUES ($1, CURRENT_DATE, 1)
-       ON CONFLICT (user_id, usage_date) DO UPDATE SET count = ai_reading_usage.count + 1`,
-      [req.userId]
-    );
+    try {
+      await pool.query(
+        'INSERT INTO ai_readings (kundali_id, area, content) VALUES ($1, $2, $3)',
+        [req.params.id, area, content]
+      );
+    } catch (err) {
+      if (err.code === '23505') {
+        const { rows } = await pool.query(
+          'SELECT content FROM ai_readings WHERE kundali_id = $1 AND area = $2',
+          [req.params.id, area]
+        );
+        res.json({ area, content: rows[0].content, cached: true });
+        return;
+      }
+      throw err;
+    }
 
     res.json({ area, content, cached: false });
   } catch (err) {
