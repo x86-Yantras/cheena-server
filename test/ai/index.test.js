@@ -17,6 +17,7 @@ describe('ai/index generateReading', () => {
   beforeEach(() => {
     process.env.ANTHROPIC_API_KEY = 'anthropic-key';
     process.env.GEMINI_API_KEY = 'gemini-key';
+    process.env.GROQ_API_KEY = 'groq-key';
   });
 
   afterEach(() => {
@@ -36,11 +37,11 @@ describe('ai/index generateReading', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('defaults to the Anthropic provider and includes the chart summary', async () => {
+  it('defaults to the Groq provider and includes the chart summary', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ content: [{ type: 'text', text: 'A steady, grounded personality.' }] }),
+      json: async () => ({ choices: [{ message: { content: 'A steady, grounded personality.' } }] }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
@@ -48,12 +49,12 @@ describe('ai/index generateReading', () => {
 
     expect(text).toBe('A steady, grounded personality.');
     const [url, options] = fetchMock.mock.calls[0];
-    expect(url).toBe('https://api.anthropic.com/v1/messages');
+    expect(url).toBe('https://api.groq.com/openai/v1/chat/completions');
     const body = JSON.parse(options.body);
-    expect(body.model).toBe('claude-haiku-4-5-20251001');
-    expect(body.messages[0].content).toContain('SUN');
-    expect(body.messages[0].content).toContain('gajakesari');
-    expect(body.messages[0].content).not.toContain('budhaditya');
+    expect(body.model).toBe('llama-3.3-70b-versatile');
+    expect(body.messages[1].content).toContain('SUN');
+    expect(body.messages[1].content).toContain('gajakesari');
+    expect(body.messages[1].content).not.toContain('budhaditya');
   });
 
   it('dispatches to the Gemini adapter when provider is overridden', async () => {

@@ -34,7 +34,7 @@ describe('aiReadingService', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    const text = await generateReading({ result: SAMPLE_RESULT, area: 'overview' });
+    const text = await generateReading({ result: SAMPLE_RESULT, area: 'overview', provider: 'anthropic' });
 
     expect(text).toBe('A steady, grounded personality.');
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -64,7 +64,7 @@ describe('aiReadingService', () => {
       json: async () => ({ error: { message: 'overloaded' } }),
     }));
 
-    await expect(generateReading({ result: SAMPLE_RESULT, area: 'overview' }))
+    await expect(generateReading({ result: SAMPLE_RESULT, area: 'overview', provider: 'anthropic' }))
       .rejects.toThrow('overloaded');
   });
 
@@ -75,7 +75,7 @@ describe('aiReadingService', () => {
       json: async () => ({ content: [] }),
     }));
 
-    await expect(generateReading({ result: SAMPLE_RESULT, area: 'overview' }))
+    await expect(generateReading({ result: SAMPLE_RESULT, area: 'overview', provider: 'anthropic' }))
       .rejects.toThrow('Anthropic API returned no text content');
   });
 
@@ -89,7 +89,7 @@ describe('aiReadingService', () => {
       }),
     }));
 
-    await expect(generateReading({ result: SAMPLE_RESULT, area: 'overview' }))
+    await expect(generateReading({ result: SAMPLE_RESULT, area: 'overview', provider: 'anthropic' }))
       .rejects.toThrow(/truncated/i);
   });
 
@@ -101,7 +101,7 @@ describe('aiReadingService', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    await generateReading({ result: SAMPLE_RESULT, area: 'overview' });
+    await generateReading({ result: SAMPLE_RESULT, area: 'overview', provider: 'anthropic' });
 
     const [, options] = fetchMock.mock.calls[0];
     const body = JSON.parse(options.body);

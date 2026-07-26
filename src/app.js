@@ -3,6 +3,7 @@ import cors from 'cors';
 import kundaliRouter from './routes/kundali.js';
 import authRouter from './routes/auth.js';
 import meKundalisRouter from './routes/meKundalis.js';
+import meKundalisChatRouter from './routes/meKundalisChat.js';
 import meMatchesRouter from './routes/meMatches.js';
 import geocodeRouter from './routes/geocode.js';
 
@@ -16,6 +17,7 @@ function createApp() {
   app.use('/api/kundali', kundaliRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/me/kundalis', meKundalisRouter);
+  app.use('/api/me/kundalis', meKundalisChatRouter);
   app.use('/api/me/matches', meMatchesRouter);
   app.use('/api/geocode', geocodeRouter);
   return app;

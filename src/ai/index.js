@@ -16,6 +16,9 @@ const VALID_AREAS = Object.keys(AREA_PROMPTS);
 const SYSTEM_PROMPT =
   'You are a Vedic astrologer writing plain-language chart readings. Be warm and specific to the given placements. Include one brief line noting this is for guidance/entertainment. Keep it to 3-5 short paragraphs.';
 
+const CHAT_SYSTEM_PROMPT =
+  'You are a Vedic astrologer having a warm, conversational chat about this person\'s birth chart. Answer the specific question naturally in 2-4 short paragraphs, referencing the given placements. Include one brief line noting this is for guidance/entertainment only.';
+
 const ADAPTERS_BY_FORMAT = {
   anthropic: generateAnthropic,
   openai: generateOpenaiCompatible,
@@ -61,4 +64,42 @@ async function generateReading({ result, area, provider, model }) {
   });
 }
 
-export { generateReading, VALID_AREAS };
+async function generateChatReply({ result, message, area, provider, model, history = [] }) {
+  if (message == null && area == null) {
+    throw new Error('Either area or message is required');
+  }
+  if (area != null && !VALID_AREAS.includes(area)) {
+    throw new Error(`Unknown reading area: ${area}`);
+  }
+  const providerConfig = resolveProviderConfig({ provider, model });
+  const chartSummary = summarizeChart(result);
+  const userQuestion = message != null ? message : AREA_PROMPTS[area];
+
+  const transcript = history
+    .map((m) => `${m.role === 'user' ? 'User' : 'Astrologer'}: ${m.content}`)
+    .join('\n');
+
+  const userContent = [
+    'Chart data (rashi index 0=Mesha..11=Meena, house is 1-12 from ascendant):',
+    JSON.stringify(chartSummary),
+    transcript ? `\nConversation so far:\n${transcript}` : '',
+    `\nUser: ${userQuestion}`,
+  ].filter(Boolean).join('\n');
+
+  const adapter = ADAPTERS_BY_FORMAT[providerConfig.format];
+  if (!adapter) {
+    throw new Error(`No adapter for provider format: ${providerConfig.format}`);
+  }
+  const reply = await adapter({
+    apiKey: providerConfig.apiKey,
+    baseUrl: providerConfig.baseUrl,
+    model: providerConfig.model,
+    systemPrompt: CHAT_SYSTEM_PROMPT,
+    userContent,
+    maxTokens: 1024,
+    timeoutMs: 30_000,
+  });
+  return { userMessage: userQuestion, reply };
+}
+
+export { generateReading, generateChatReply, VALID_AREAS };

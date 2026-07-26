@@ -107,6 +107,7 @@ router.patch('/:id', async (req, res) => {
     }
     if (result != null) {
       await pool.query('DELETE FROM ai_readings WHERE kundali_id = $1', [req.params.id]);
+      await pool.query('DELETE FROM ai_chat_messages WHERE kundali_id = $1', [req.params.id]);
     }
     res.json(rows[0]);
   } catch (err) {

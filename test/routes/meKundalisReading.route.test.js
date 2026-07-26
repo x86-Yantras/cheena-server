@@ -60,7 +60,7 @@ describe('GET /api/me/kundalis/:id/reading', () => {
       return {
         ok: true,
         status: 200,
-        json: async () => ({ content: [{ type: 'text', text: 'Generated reading text.' }] }),
+        json: async () => ({ choices: [{ message: { content: 'Generated reading text.' } }] }),
       };
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -153,11 +153,11 @@ describe('GET /api/me/kundalis/:id/reading', () => {
           }),
         };
       }
-      // Anthropic (default provider) shape
+      // Groq (default provider, openai-compatible format) shape
       return {
         ok: true,
         status: 200,
-        json: async () => ({ content: [{ type: 'text', text: 'Generated reading text.' }] }),
+        json: async () => ({ choices: [{ message: { content: 'Generated reading text.' } }] }),
       };
     });
 
@@ -387,7 +387,7 @@ describe('GET /api/me/kundalis/:id/reading', () => {
       return {
         ok: true,
         status: 200,
-        json: async () => ({ content: [{ type: 'text', text: 'Losing generated text.' }] }),
+        json: async () => ({ choices: [{ message: { content: 'Losing generated text.' } }] }),
       };
     });
 

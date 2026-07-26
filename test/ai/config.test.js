@@ -5,16 +5,17 @@ describe('resolveProviderConfig', () => {
   beforeEach(() => {
     process.env.ANTHROPIC_API_KEY = 'anthropic-key';
     process.env.GEMINI_API_KEY = 'gemini-key';
+    process.env.GROQ_API_KEY = 'groq-key';
   });
 
   it('resolves the default provider and its default model when nothing is specified', () => {
     const cfg = resolveProviderConfig();
     expect(cfg).toEqual({
-      provider: 'anthropic',
-      model: 'claude-haiku-4-5-20251001',
-      format: 'anthropic',
-      baseUrl: 'https://api.anthropic.com/v1/messages',
-      apiKey: 'anthropic-key',
+      provider: 'groq',
+      model: 'llama-3.3-70b-versatile',
+      format: 'openai',
+      baseUrl: 'https://api.groq.com/openai/v1/chat/completions',
+      apiKey: 'groq-key',
     });
   });
 
