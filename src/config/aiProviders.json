@@ -1,5 +1,5 @@
 {
-  "defaultProvider": "anthropic",
+  "defaultProvider": "groq",
   "providers": {
     "anthropic": {
       "format": "anthropic",
