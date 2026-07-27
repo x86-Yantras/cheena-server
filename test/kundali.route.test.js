@@ -38,6 +38,23 @@ describe('POST /api/kundali', () => {
     expect(response.body.planets).toHaveLength(9);
   }, 20000);
 
+  it('returns a well-formed panchang field computed from the mocked sun/moon longitudes', async () => {
+    const app = createApp();
+    const response = await request(app).post('/api/kundali').send(validPayload);
+    expect(response.status).toBe(200);
+    expect(response.body.panchang).toEqual({
+      tithi: {
+        tithiIndex: 2,
+        paksha: 'shukla',
+        tithiName: 'Tritiya',
+        degreesElapsed: 6,
+        degreesRemaining: 6,
+      },
+      yoga: { yogaIndex: 3, yogaName: 'Saubhagya' },
+      karana: { karanaHalfIndex: 5, karanaName: 'Gara' },
+    });
+  }, 20000);
+
   it('returns 400 when date is missing', async () => {
     const app = createApp();
     const { date, ...rest } = validPayload;
