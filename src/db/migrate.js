@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { getPool } from './pool.js';
+import logger from '../logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = path.join(__dirname, '..', '..', 'migrations');
@@ -25,6 +26,7 @@ async function runMigrations() {
     const sql = readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8');
     await pool.query(sql);
     await pool.query('INSERT INTO schema_migrations (name) VALUES ($1)', [file]);
+    logger.info({ migration: file }, `Applied database migration ${file}`);
   }
 }
 

@@ -4,24 +4,18 @@ import { requireAuth } from '../auth/authMiddleware.js';
 import { validateKundaliInput } from '../validators/kundaliInput.js';
 import { calculateKundali } from '../kundaliCalculator.js';
 import { computeMatch } from '../matchCalculator.js';
+import logger from '../logger.js';
 
 const router = Router();
 
 router.use(requireAuth);
 
-// kundaliId is a BIGSERIAL primary key, so the pg driver (and any client round-tripping
-// a previously-returned id) may represent it as a numeric string rather than a JS number.
-// Accept plain integers and integer-looking strings; reject everything else (floats,
-// non-numeric strings, arrays, objects, etc.) before it ever reaches a SQL query.
 function isValidKundaliId(value) {
   if (typeof value === 'number') return Number.isInteger(value);
   if (typeof value === 'string') return /^\d+$/.test(value.trim());
   return false;
 }
 
-// Cheap, synchronous shape validation for one side of a match request. Performs no
-// DB queries and no ephemeris computation, so both sides can be validated up front
-// before either side's expensive work (resolveSide) is started.
 function validateSideShape(side) {
   if (side && typeof side.kundaliId !== 'undefined') {
     if (!isValidKundaliId(side.kundaliId)) {
@@ -34,8 +28,6 @@ function validateSideShape(side) {
   return { fresh: side };
 }
 
-// Expensive resolution (DB lookup or calculateKundali) for a side that has already
-// passed validateSideShape.
 async function resolveSide(pool, userId, shape) {
   if (typeof shape.kundaliId !== 'undefined') {
     const { rows } = await pool.query(
@@ -64,13 +56,14 @@ const FULL_COLUMNS = `
   report, created_at AS "createdAt"
 `;
 
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const pool = getPool();
     const { rows } = await pool.query(
       `SELECT ${LIST_COLUMNS} FROM matches WHERE user_id = $1 ORDER BY created_at DESC`,
       [req.userId],
     );
+    logger.debug({ count: rows.length }, 'Fetched user matches');
     res.json(rows.map((row) => ({
       id: row.id,
       groomLabel: row.groomLabel,
@@ -80,12 +73,12 @@ router.get('/', async (req, res) => {
       createdAt: row.createdAt,
     })));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to fetch matches');
+    next(err);
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   const { groomLabel, brideLabel, groom, bride } = req.body;
   if (typeof groomLabel !== 'string' || groomLabel.trim() === '') {
     res.status(400).json({ error: 'groomLabel must be a non-empty string' });
@@ -132,14 +125,16 @@ router.post('/', async (req, res) => {
         report,
       ],
     );
-    res.status(201).json(rows[0]);
+    const createdMatch = rows[0];
+    logger.info({ matchId: createdMatch.id, groomLabel, brideLabel, totalPoints: report.ashtakoot?.totalPoints }, 'Match report created successfully');
+    res.status(201).json(createdMatch);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to create match');
+    next(err);
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) {
     res.status(404).json({ error: 'match not found' });
     return;
@@ -156,12 +151,12 @@ router.get('/:id', async (req, res) => {
     }
     res.json(rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to fetch match by ID');
+    next(err);
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) {
     res.status(404).json({ error: 'match not found' });
     return;
@@ -176,10 +171,11 @@ router.delete('/:id', async (req, res) => {
       res.status(404).json({ error: 'match not found' });
       return;
     }
+    logger.info({ matchId: req.params.id }, 'Deleted match report');
     res.status(204).send();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to delete match');
+    next(err);
   }
 });
 

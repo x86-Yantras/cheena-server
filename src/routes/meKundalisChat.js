@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getPool } from '../db/pool.js';
 import { requireAuth } from '../auth/authMiddleware.js';
 import { generateChatReply, VALID_AREAS } from '../aiReadingService.js';
+import logger from '../logger.js';
 
 const router = Router();
 
@@ -10,7 +11,7 @@ const MAX_MESSAGE_LENGTH = 1000;
 
 router.use(requireAuth);
 
-router.get('/:id/chat', async (req, res) => {
+router.get('/:id/chat', async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) {
     res.status(404).json({ error: 'kundali not found' });
     return;
@@ -29,14 +30,15 @@ router.get('/:id/chat', async (req, res) => {
       'SELECT id, role, content, created_at FROM ai_chat_messages WHERE kundali_id = $1 ORDER BY created_at, id',
       [req.params.id]
     );
+    logger.debug({ kundaliId: req.params.id, messageCount: rows.length }, 'Fetched chat history');
     res.json(rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to fetch chat history');
+    next(err);
   }
 });
 
-router.post('/:id/chat', async (req, res) => {
+router.post('/:id/chat', async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) {
     res.status(404).json({ error: 'kundali not found' });
     return;
@@ -76,6 +78,7 @@ router.post('/:id/chat', async (req, res) => {
       [req.userId]
     );
     if (usageRows[0].count > DAILY_CHAT_LIMIT) {
+      logger.warn({ userId: req.userId, count: usageRows[0].count }, 'Daily AI chat limit exceeded');
       res.status(429).json({ error: 'daily AI chat limit reached, try again tomorrow' });
       return;
     }
@@ -88,6 +91,7 @@ router.post('/:id/chat', async (req, res) => {
     let userMessage;
     let reply;
     try {
+      logger.info({ kundaliId: req.params.id, area, provider, model, historyLength: historyRows.length }, 'Generating AI chat reply');
       ({ userMessage, reply } = await generateChatReply({
         result: kundaliRows[0].result,
         message,
@@ -97,7 +101,7 @@ router.post('/:id/chat', async (req, res) => {
         history: historyRows,
       }));
     } catch (err) {
-      console.error(err);
+      logger.error(err, 'AI chat reply generation failed');
       await pool.query(
         'UPDATE ai_reading_usage SET count = count - 1 WHERE user_id = $1 AND usage_date = CURRENT_DATE',
         [req.userId]
@@ -115,10 +119,11 @@ router.post('/:id/chat', async (req, res) => {
     );
 
     const assistantRow = insertedRows.find((r) => r.role === 'assistant');
+    logger.info({ kundaliId: req.params.id, assistantMessageId: assistantRow.id }, 'AI chat exchange saved successfully');
     res.status(201).json(assistantRow);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to process chat message request');
+    next(err);
   }
 });
 

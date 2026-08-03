@@ -1,4 +1,5 @@
 import { verifyToken } from './jwt.js';
+import { setUserIdInContext } from '../utils/requestContext.js';
 
 function requireAuth(req, res, next) {
   const header = req.get('Authorization') || '';
@@ -10,6 +11,7 @@ function requireAuth(req, res, next) {
   try {
     const decoded = verifyToken(match[1]);
     req.userId = decoded.userId;
+    setUserIdInContext(decoded.userId);
     next();
   } catch {
     res.status(401).json({ error: 'invalid or expired token' });
@@ -17,3 +19,4 @@ function requireAuth(req, res, next) {
 }
 
 export { requireAuth };
+

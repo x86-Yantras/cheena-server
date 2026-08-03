@@ -4,6 +4,7 @@ import { requireAuth } from '../auth/authMiddleware.js';
 import { validateKundaliInput } from '../validators/kundaliInput.js';
 import { calculateKundali } from '../kundaliCalculator.js';
 import { generateReading, VALID_AREAS } from '../aiReadingService.js';
+import logger from '../logger.js';
 
 const router = Router();
 
@@ -11,21 +12,22 @@ const DAILY_READING_LIMIT = 10;
 
 router.use(requireAuth);
 
-router.get('/', async (req, res) => {
+router.get('/', async (req, res, next) => {
   try {
     const pool = getPool();
     const { rows } = await pool.query(
       'SELECT id, label, name, date, time, latitude, longitude, timezone, result, created_at FROM kundalis WHERE user_id = $1 ORDER BY created_at DESC',
       [req.userId]
     );
+    logger.debug({ count: rows.length }, 'Fetched user saved kundalis');
     res.json(rows);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to fetch user kundalis');
+    next(err);
   }
 });
 
-router.post('/', async (req, res) => {
+router.post('/', async (req, res, next) => {
   const { label, name } = req.body;
   if (typeof label !== 'string' || label.trim() === '') {
     res.status(400).json({ error: 'label must be a non-empty string' });
@@ -50,14 +52,16 @@ router.post('/', async (req, res) => {
        RETURNING id, label, name, date, time, latitude, longitude, timezone, result, created_at`,
       [req.userId, label.trim(), name.trim(), date, time, latitude, longitude, timezone ?? null, result]
     );
-    res.status(201).json(rows[0]);
+    const createdKundali = rows[0];
+    logger.info({ kundaliId: createdKundali.id, label: createdKundali.label, name: createdKundali.name }, 'Saved new user kundali');
+    res.status(201).json(createdKundali);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to create user kundali');
+    next(err);
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) {
     res.status(404).json({ error: 'kundali not found' });
     return;
@@ -74,12 +78,12 @@ router.get('/:id', async (req, res) => {
     }
     res.json(rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to get user kundali by ID');
+    next(err);
   }
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) {
     res.status(404).json({ error: 'kundali not found' });
     return;
@@ -108,15 +112,17 @@ router.patch('/:id', async (req, res) => {
     if (result != null) {
       await pool.query('DELETE FROM ai_readings WHERE kundali_id = $1', [req.params.id]);
       await pool.query('DELETE FROM ai_chat_messages WHERE kundali_id = $1', [req.params.id]);
+      logger.info({ kundaliId: req.params.id }, 'Invalidated cached readings and chat history due to result recalculation');
     }
+    logger.info({ kundaliId: req.params.id, label: label.trim() }, 'Updated user kundali');
     res.json(rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to patch user kundali');
+    next(err);
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) {
     res.status(404).json({ error: 'kundali not found' });
     return;
@@ -131,14 +137,15 @@ router.delete('/:id', async (req, res) => {
       res.status(404).json({ error: 'kundali not found' });
       return;
     }
+    logger.info({ kundaliId: req.params.id }, 'Deleted user kundali');
     res.status(204).send();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to delete user kundali');
+    next(err);
   }
 });
 
-router.get('/:id/reading', async (req, res) => {
+router.get('/:id/reading', async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) {
     res.status(404).json({ error: 'kundali not found' });
     return;
@@ -169,6 +176,7 @@ router.get('/:id/reading', async (req, res) => {
         [req.params.id, area]
       );
       if (cachedRows.length > 0) {
+        logger.info({ kundaliId: req.params.id, area, cached: true }, 'Returned cached AI reading');
         res.json({ area, content: cachedRows[0].content, cached: true });
         return;
       }
@@ -180,6 +188,7 @@ router.get('/:id/reading', async (req, res) => {
         [req.userId]
       );
       if (usageRows[0].count > DAILY_READING_LIMIT) {
+        logger.warn({ userId: req.userId, count: usageRows[0].count }, 'Daily AI reading rate limit exceeded');
         res.status(429).json({ error: 'daily AI reading limit reached, try again tomorrow' });
         return;
       }
@@ -187,9 +196,10 @@ router.get('/:id/reading', async (req, res) => {
 
     let content;
     try {
+      logger.info({ kundaliId: req.params.id, area, provider, model }, 'Generating new AI reading');
       content = await generateReading({ result: kundaliRows[0].result, area, provider, model });
     } catch (err) {
-      console.error(err);
+      logger.error(err, 'AI reading generation failed');
       if (!isOverride) {
         await pool.query(
           'UPDATE ai_reading_usage SET count = count - 1 WHERE user_id = $1 AND usage_date = CURRENT_DATE',
@@ -202,6 +212,7 @@ router.get('/:id/reading', async (req, res) => {
     }
 
     if (isOverride) {
+      logger.info({ kundaliId: req.params.id, area, provider, model }, 'Generated AI reading with provider override');
       res.json({ area, content, cached: false });
       return;
     }
@@ -211,12 +222,14 @@ router.get('/:id/reading', async (req, res) => {
         'INSERT INTO ai_readings (kundali_id, area, content) VALUES ($1, $2, $3)',
         [req.params.id, area, content]
       );
+      logger.info({ kundaliId: req.params.id, area }, 'Saved newly generated AI reading to cache');
     } catch (err) {
       if (err.code === '23505') {
         const { rows } = await pool.query(
           'SELECT content FROM ai_readings WHERE kundali_id = $1 AND area = $2',
           [req.params.id, area]
         );
+        logger.info({ kundaliId: req.params.id, area }, 'Concurrent insertion race resolved, returned cached AI reading');
         res.json({ area, content: rows[0].content, cached: true });
         return;
       }
@@ -225,8 +238,8 @@ router.get('/:id/reading', async (req, res) => {
 
     res.json({ area, content, cached: false });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to process kundali reading request');
+    next(err);
   }
 });
 

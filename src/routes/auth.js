@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getPool } from '../db/pool.js';
 import { hashPassword, verifyPassword } from '../auth/password.js';
 import { signToken } from '../auth/jwt.js';
+import logger from '../logger.js';
 
 const router = Router();
 
@@ -20,9 +21,10 @@ function validateCredentials(body) {
   return errors;
 }
 
-router.post('/register', async (req, res) => {
+router.post('/register', async (req, res, next) => {
   const errors = validateCredentials(req.body);
   if (errors.length > 0) {
+    logger.warn({ validationErrors: errors }, 'User registration validation failed');
     res.status(400).json({ error: errors.join('; ') });
     return;
   }
@@ -31,6 +33,7 @@ router.post('/register', async (req, res) => {
     const pool = getPool();
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
+      logger.warn({ email }, 'Registration failed: email already registered');
       res.status(409).json({ error: 'email is already registered' });
       return;
     }
@@ -41,21 +44,24 @@ router.post('/register', async (req, res) => {
     );
     const user = rows[0];
     const token = signToken({ userId: user.id });
+    logger.info({ userId: user.id, email: user.email }, 'User account created successfully');
     res.status(201).json({ token, user: { id: user.id, email: user.email } });
   } catch (err) {
     if (err.code === '23505') {
+      logger.warn({ email }, 'Registration failed: email concurrent conflict');
       res.status(409).json({ error: 'email is already registered' });
       return;
     }
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to register user due to database error');
+    next(err);
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', async (req, res, next) => {
   const email = normalizeEmail(req.body.email);
   const password = req.body.password;
   if (typeof email !== 'string' || typeof password !== 'string') {
+    logger.warn('Login attempt missing email or password');
     res.status(400).json({ error: 'email and password are required' });
     return;
   }
@@ -67,14 +73,16 @@ router.post('/login', async (req, res) => {
     );
     const user = rows[0];
     if (!user || !(await verifyPassword(password, user.password_hash))) {
+      logger.warn({ email }, 'Login failed: invalid email or password');
       res.status(401).json({ error: 'invalid email or password' });
       return;
     }
     const token = signToken({ userId: user.id });
+    logger.info({ userId: user.id, email: user.email }, 'User logged in successfully');
     res.json({ token, user: { id: user.id, email: user.email } });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'internal server error' });
+    logger.error(err, 'Failed to log in user due to database error');
+    next(err);
   }
 });
 
