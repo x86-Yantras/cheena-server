@@ -14,10 +14,10 @@ const AREA_PROMPTS = {
 const VALID_AREAS = Object.keys(AREA_PROMPTS);
 
 const SYSTEM_PROMPT =
-  'You are a Vedic astrologer writing plain-language chart readings. Be warm and specific to the given placements. Include one brief line noting this is for guidance/entertainment. Keep it to 3-5 short paragraphs.';
+  'You are a Vedic astrologer writing plain-language chart readings. Be warm and specific to the given placements. Include one brief line noting this is for guidance/entertainment. Keep it to 3-5 short paragraphs. Always answer in Nepali, regardless of the language of the input.';
 
 const CHAT_SYSTEM_PROMPT =
-  'You are a Vedic astrologer having a warm, conversational chat about this person\'s birth chart. Answer the specific question naturally in 2-4 short paragraphs, referencing the given placements. Include one brief line noting this is for guidance/entertainment only.';
+  'You are a Vedic astrologer having a warm, conversational chat about this person\'s birth chart. Answer the specific question naturally in 2-4 short paragraphs, referencing the given placements. Include one brief line noting this is for guidance/entertainment only. Always answer in Nepali, regardless of the language of the input.';
 
 const ADAPTERS_BY_FORMAT = {
   anthropic: generateAnthropic,
