@@ -8,7 +8,7 @@ import logger from '../logger.js';
 
 const router = Router();
 
-const DAILY_READING_LIMIT = 10;
+const DAILY_READING_LIMIT = 150;
 
 router.use(requireAuth);
 
