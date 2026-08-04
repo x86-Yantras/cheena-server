@@ -80,4 +80,26 @@ describe('gemini adapter', () => {
 
     await expect(generate(BASE_ARGS)).rejects.toThrow('Gemini API returned 401');
   });
+
+  it('includes temperature in generationConfig when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] }, finishReason: 'STOP' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await generate({ ...BASE_ARGS, temperature: 0.5 });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.generationConfig.temperature).toBe(0.5);
+  });
+
+  it('omits temperature from generationConfig when not provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ candidates: [{ content: { parts: [{ text: 'ok' }] }, finishReason: 'STOP' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await generate(BASE_ARGS);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.generationConfig.temperature).toBeUndefined();
+  });
 });

@@ -1,4 +1,4 @@
-async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, maxTokens, timeoutMs }) {
+async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, maxTokens, timeoutMs, temperature }) {
   const response = await fetch(baseUrl, {
     method: 'POST',
     headers: {
@@ -13,6 +13,7 @@ async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, max
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent },
       ],
+      ...(temperature !== undefined && { temperature }),
     }),
   });
   let body;

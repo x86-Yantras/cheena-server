@@ -1,4 +1,4 @@
-async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, maxTokens, timeoutMs }) {
+async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, maxTokens, timeoutMs, temperature }) {
   const response = await fetch(`${baseUrl}/${encodeURIComponent(model)}:generateContent?key=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -6,7 +6,7 @@ async function generate({ apiKey, baseUrl, model, systemPrompt, userContent, max
     body: JSON.stringify({
       system_instruction: { parts: [{ text: systemPrompt }] },
       contents: [{ role: 'user', parts: [{ text: userContent }] }],
-      generationConfig: { maxOutputTokens: maxTokens },
+      generationConfig: { maxOutputTokens: maxTokens, ...(temperature !== undefined && { temperature }) },
     }),
   });
   let body;

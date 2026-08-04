@@ -81,4 +81,26 @@ describe('openaiCompatible adapter', () => {
 
     await expect(generate(BASE_ARGS)).rejects.toThrow(/truncated/i);
   });
+
+  it('includes temperature in the request body when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await generate({ ...BASE_ARGS, temperature: 0.5 });
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.temperature).toBe(0.5);
+  });
+
+  it('omits temperature from the request body when not provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'ok' }, finish_reason: 'stop' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await generate(BASE_ARGS);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(body.temperature).toBeUndefined();
+  });
 });
