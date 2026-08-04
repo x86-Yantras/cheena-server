@@ -1,4 +1,5 @@
 import { RASHI_LORDS, EXALTATION_RASHI, OWN_RASHIS } from '../yogaCalculator.js';
+import { PLANET_FRIENDSHIP } from '../matchData.js';
 
 const KENDRA_HOUSES = [1, 4, 7, 10];
 const TRIKONA_HOUSES = [1, 5, 9];
@@ -40,6 +41,16 @@ function computeDignity(planetKey, rashiIndex) {
   const debilitationRashi = (exaltationRashi + 6) % 12;
   if (rashiIndex === debilitationRashi) return 'Debilitated';
   if ((OWN_RASHIS[planetKey] || []).includes(rashiIndex)) return 'OwnSign';
+
+  // Friend/Enemy classification based on the natural friendship table.
+  // Only applies to the 7 classical grahas (nodes have no friendship data).
+  if (PLANET_FRIENDSHIP[planetKey]) {
+    const rashiLord = RASHI_LORDS[rashiIndex];
+    const friendshipData = PLANET_FRIENDSHIP[planetKey];
+    if (friendshipData.friends.includes(rashiLord)) return 'Friend';
+    if (friendshipData.enemies.includes(rashiLord)) return 'Enemy';
+  }
+
   return 'Neutral';
 }
 

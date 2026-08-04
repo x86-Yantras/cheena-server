@@ -75,4 +75,21 @@ describe('computeDignity', () => {
   it('Sun in an unrelated sign is Neutral', () => {
     expect(computeDignity('SUN', 2)).toBe('Neutral');
   });
+
+  it('Sun in Karka (Moon-ruled, and Moon is a natural friend of Sun) is Friend', () => {
+    expect(computeDignity('SUN', 3)).toBe('Friend');
+  });
+
+  it('Sun in Tula (Venus-ruled, and Venus is a natural enemy of Sun) is Debilitated, not Enemy', () => {
+    // Tula(6) is Sun's debilitation sign — Debilitated must take priority over Enemy.
+    expect(computeDignity('SUN', 6)).toBe('Debilitated');
+  });
+
+  it('Sun in Kumbha (Saturn-ruled, and Saturn is a natural enemy of Sun) is Enemy', () => {
+    expect(computeDignity('SUN', 10)).toBe('Enemy');
+  });
+
+  it('Rahu (no friendship data) in any non-exalted/non-debilitated/non-own sign is Neutral', () => {
+    expect(computeDignity('RAHU', 5)).toBe('Neutral');
+  });
 });
