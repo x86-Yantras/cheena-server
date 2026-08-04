@@ -13,7 +13,7 @@ router.get('/', async (req, res, next) => {
     const pool = getPool();
     const { rows } = await pool.query('SELECT id, email, name FROM users WHERE id = $1', [req.userId]);
     const user = rows[0];
-    res.json({ id: Number(user.id), email: user.email, name: user.name });
+    res.json({ id: user.id, email: user.email, name: user.name });
   } catch (err) {
     logger.error(err, 'Failed to fetch profile due to database error');
     next(err);
@@ -37,7 +37,7 @@ router.patch('/', async (req, res, next) => {
       [name.trim(), req.userId]
     );
     const user = rows[0];
-    res.json({ id: Number(user.id), email: user.email, name: user.name });
+    res.json({ id: user.id, email: user.email, name: user.name });
   } catch (err) {
     logger.error(err, 'Failed to update profile due to database error');
     next(err);
@@ -59,11 +59,13 @@ router.patch('/password', async (req, res, next) => {
     const { rows } = await pool.query('SELECT password_hash FROM users WHERE id = $1', [req.userId]);
     const user = rows[0];
     if (!user || !(await verifyPassword(currentPassword, user.password_hash))) {
+      logger.warn({ userId: req.userId }, 'Password change failed: current password incorrect');
       res.status(401).json({ error: 'current password is incorrect' });
       return;
     }
     const passwordHash = await hashPassword(newPassword);
     await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, req.userId]);
+    logger.info({ userId: req.userId }, 'Password changed successfully');
     res.json({ ok: true });
   } catch (err) {
     logger.error(err, 'Failed to change password due to database error');

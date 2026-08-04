@@ -48,7 +48,7 @@ describe('/api/me/profile', () => {
       .get('/api/me/profile')
       .set('Authorization', `Bearer ${token}`);
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ id: expect.any(Number), email: 'profile1@example.com', name: null });
+    expect(response.body).toEqual({ id: expect.any(String), email: 'profile1@example.com', name: null });
   });
 
   it('PATCH updates the name and it is reflected on a subsequent GET', async () => {
@@ -74,6 +74,16 @@ describe('/api/me/profile', () => {
       .patch('/api/me/profile')
       .set('Authorization', `Bearer ${token}`)
       .send({ name: '   ' });
+    expect(response.status).toBe(400);
+  });
+
+  it('PATCH rejects a name longer than 100 characters with 400', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'profile7@example.com');
+    const response = await request(app)
+      .patch('/api/me/profile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: 'a'.repeat(101) });
     expect(response.status).toBe(400);
   });
 
