@@ -54,4 +54,35 @@ function computeDignity(planetKey, rashiIndex) {
   return 'Neutral';
 }
 
-export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity };
+const COMBUSTION_LIMITS = {
+  MERCURY: 12, VENUS: 8, MARS: 17, JUPITER: 11, SATURN: 15, MOON: 12,
+};
+
+function computeNeechaBhanga(planetKey, rashiIndex, ascendantRashiIndex, allPlanets) {
+  const exaltationRashi = EXALTATION_RASHI[planetKey];
+  if (exaltationRashi === undefined) return false;
+  const debilitationRashi = (exaltationRashi + 6) % 12;
+  if (rashiIndex !== debilitationRashi) return false;
+
+  const exaltationLord = RASHI_LORDS[exaltationRashi];
+  const debilitationLord = RASHI_LORDS[debilitationRashi];
+  const byKey = Object.fromEntries(allPlanets.map((p) => [p.key, p]));
+
+  const exaltationLordInKendra = byKey[exaltationLord] && KENDRA_HOUSES.includes(byKey[exaltationLord].house);
+  const debilitationLordInKendra = byKey[debilitationLord] && KENDRA_HOUSES.includes(byKey[debilitationLord].house);
+  return Boolean(exaltationLordInKendra || debilitationLordInKendra);
+}
+
+function isVargottama(rashiIndex, navamsaRashiIndex) {
+  return rashiIndex === navamsaRashiIndex;
+}
+
+function computeIsCombust(planetKey, planetLongitude, sunLongitude) {
+  const limit = COMBUSTION_LIMITS[planetKey];
+  if (limit === undefined) return false;
+  const diff = Math.abs(planetLongitude - sunLongitude);
+  const angularDistance = Math.min(diff, 360 - diff);
+  return angularDistance < limit;
+}
+
+export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust };
