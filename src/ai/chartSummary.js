@@ -1,7 +1,11 @@
 import { RASHI_LORDS, EXALTATION_RASHI, OWN_RASHIS } from '../yogaCalculator.js';
 import { PLANET_FRIENDSHIP } from '../matchData.js';
-import { computeJulianDay, computePlanetLongitude } from '../swissephService.js';
-import { PLANET_NAMES_NE, RASHI_NAMES_NE, ORDINAL_LORD_SUFFIX_NE, toDevanagariDigits } from './nepaliNames.js';
+import { computeJulianDay, computePlanetLongitude, getSwe } from '../swissephService.js';
+import { DASHA_SEQUENCE } from '../dashaCalculator.js';
+import {
+  PLANET_NAMES_NE, RASHI_NAMES_NE, NAKSHATRA_NAMES_NE, ORDINAL_LORD_SUFFIX_NE,
+  formatDegree, toDevanagariDigits,
+} from './nepaliNames.js';
 
 const KENDRA_HOUSES = [1, 4, 7, 10];
 const TRIKONA_HOUSES = [1, 5, 9];
@@ -205,4 +209,145 @@ async function computeTransits({ moonRashiIndex, ascendantRashiIndex, latitude, 
   }
 }
 
-export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde, findCurrentDasha, describeDashaLordRole, describeYogas, computeTransits };
+function buildStrengthNote(functionalNature, dignity, isVargottama, isCombust, neechaBhanga) {
+  const parts = [];
+  if (dignity === 'Exalted') parts.push('उच्चको');
+  if (dignity === 'Debilitated') parts.push(neechaBhanga ? 'नीच (नीचभंग)' : 'नीच');
+  if (dignity === 'OwnSign') parts.push('स्वराशिको');
+  if (functionalNature === 'Yogakaraka') parts.push('योगकारक');
+  if (isVargottama) parts.push('वर्गोत्तम');
+  if (isCombust) parts.push('अस्त');
+  if (parts.length === 0) parts.push('सामान्य');
+  return parts.join(', ');
+}
+
+async function summarizeChart({ result, latitude, longitude, timezone }) {
+  const swe = await getSwe();
+  const ascendantRashiIndex = result.ascendant.rashiIndex;
+  const moon = result.planets.find((p) => p.key === 'MOON');
+  const sun = result.planets.find((p) => p.key === 'SUN');
+
+  const houseLordsRaw = computeHouseLords(ascendantRashiIndex);
+  const planetsByKey = Object.fromEntries(result.planets.map((p) => [p.key, p]));
+  const houseLords = houseLordsRaw.map((hl) => ({
+    house: hl.house,
+    rashi: RASHI_NAMES_NE[hl.rashiIndex],
+    lord: PLANET_NAMES_NE[hl.lord],
+    occupants: result.planets.filter((p) => p.rashiIndex === hl.rashiIndex).map((p) => PLANET_NAMES_NE[p.key]),
+  }));
+
+  const planets = [];
+  for (const p of result.planets) {
+    const lordOf = computeLordOf(p.key, ascendantRashiIndex);
+    const functionalNature = computeFunctionalNature(p.key, lordOf);
+    const dignity = computeDignity(p.key, p.rashiIndex);
+    const neechaBhanga = dignity === 'Debilitated'
+      ? computeNeechaBhanga(p.key, p.rashiIndex, ascendantRashiIndex, result.planets)
+      : undefined;
+    const vargottama = isVargottama(p.rashiIndex, p.navamsa.rashiIndex);
+    const combust = p.key === 'SUN' ? false : computeIsCombust(p.key, p.longitude, sun.longitude);
+    const retrograde = p.key === 'SUN' || p.key === 'MOON' || p.key === 'KETU'
+      ? null
+      : await computeIsRetrograde({
+        dateStr: new Date().toISOString().slice(0, 10), timeStr: '12:00', latitude, longitude, timezone,
+        planetKey: p.key, currentLongitude: p.longitude, swe,
+      });
+
+    planets.push({
+      name: PLANET_NAMES_NE[p.key],
+      rashi: RASHI_NAMES_NE[p.rashiIndex],
+      house: p.house,
+      degree: formatDegree(p.longitude % 30),
+      nakshatra: NAKSHATRA_NAMES_NE[p.nakshatraIndex],
+      pada: p.pada,
+      lordOf,
+      lordOfText: lordOf.map((h) => ORDINAL_LORD_SUFFIX_NE[h - 1]).join('+'),
+      naturalBenefic: ['JUPITER', 'VENUS', 'MERCURY', 'MOON'].includes(p.key),
+      functionalNature,
+      dignity,
+      isVargottama: vargottama,
+      isRetrograde: retrograde,
+      isCombust: combust,
+      ...(neechaBhanga !== undefined && { neechaBhanga }),
+      strengthNote: buildStrengthNote(functionalNature, dignity, vargottama, combust, neechaBhanga),
+    });
+  }
+
+  const yogas = describeYogas(result.yogaDosha || { yogas: [], doshas: [] });
+
+  const nowMs = Date.now();
+  const currentDasha = findCurrentDasha(result.dasha.mahadashas, nowMs);
+  const dasha = {
+    mahadasha: currentDasha.mahadasha ? PLANET_NAMES_NE[currentDasha.mahadasha] : null,
+    antardasha: currentDasha.antardasha ? PLANET_NAMES_NE[currentDasha.antardasha] : null,
+    pratyantardasha: currentDasha.pratyantardasha ? PLANET_NAMES_NE[currentDasha.pratyantardasha] : null,
+    mahaLordRole: currentDasha.mahadasha ? describeDashaLordRole(currentDasha.mahadasha, ascendantRashiIndex, planetsByKey) : null,
+    antarLordRole: currentDasha.antardasha ? describeDashaLordRole(currentDasha.antardasha, ascendantRashiIndex, planetsByKey) : null,
+    pratyantarLordRole: currentDasha.pratyantardasha ? describeDashaLordRole(currentDasha.pratyantardasha, ascendantRashiIndex, planetsByKey) : null,
+  };
+
+  const transits = await computeTransits({ moonRashiIndex: moon.rashiIndex, ascendantRashiIndex, latitude, longitude, timezone, swe });
+
+  const lagnaPlanet = result.planets.find((p) => p.rashiIndex === ascendantRashiIndex);
+  return {
+    lagna: {
+      rashi: RASHI_NAMES_NE[ascendantRashiIndex],
+      degree: formatDegree(result.ascendant.longitude % 30),
+      nakshatra: NAKSHATRA_NAMES_NE[Math.floor(result.ascendant.longitude / (360 / 27)) % 27],
+      pada: Math.floor((result.ascendant.longitude % (360 / 27)) / (360 / 27 / 4)) + 1,
+      lord: PLANET_NAMES_NE[RASHI_LORDS[ascendantRashiIndex]],
+    },
+    moonRashi: RASHI_NAMES_NE[moon.rashiIndex],
+    sunRashi: RASHI_NAMES_NE[sun.rashiIndex],
+    janmaNakshatra: {
+      name: NAKSHATRA_NAMES_NE[moon.nakshatraIndex],
+      pada: moon.pada,
+      lord: PLANET_NAMES_NE[DASHA_SEQUENCE[moon.nakshatraIndex % 9].lord],
+    },
+    planets,
+    houseLords,
+    yogas,
+    dasha,
+    transits,
+  };
+}
+
+function formatChartForPrompt(summary) {
+  const lines = [];
+  lines.push(`लग्न: ${summary.lagna.rashi} ${summary.lagna.degree} (${summary.lagna.nakshatra}-${summary.lagna.pada}), लग्नेश ${summary.lagna.lord}`);
+  lines.push(`चन्द्र राशि: ${summary.moonRashi} | सूर्य राशि: ${summary.sunRashi}`);
+  lines.push(`जन्म नक्षत्र: ${summary.janmaNakshatra.name}-${summary.janmaNakshatra.pada} (स्वामी ${summary.janmaNakshatra.lord})`);
+  lines.push('');
+  lines.push('ग्रहहरू:');
+  for (const p of summary.planets) {
+    const bits = [p.lordOfText, p.functionalNature !== 'Neutral' ? p.functionalNature : null, p.strengthNote].filter(Boolean);
+    lines.push(`- ${p.name}: ${p.rashi}, भाव ${p.house}, ${p.degree} | ${bits.join(' | ')}`);
+  }
+  lines.push('');
+  lines.push('भाव-स्वामी:');
+  for (const hl of summary.houseLords) {
+    lines.push(`- ${hl.house}म (${hl.rashi}): ${hl.lord}${hl.occupants.length ? ` | बस्ने: ${hl.occupants.join(', ')}` : ''}`);
+  }
+  if (summary.yogas.length > 0) {
+    lines.push('');
+    lines.push('योगहरू:');
+    for (const y of summary.yogas) {
+      lines.push(`- ${y.name}: ${y.effect}`);
+    }
+  }
+  lines.push('');
+  lines.push(`हालको दशा: ${summary.dasha.mahadasha} > ${summary.dasha.antardasha} > ${summary.dasha.pratyantardasha}`);
+  if (summary.dasha.mahaLordRole) lines.push(`- महादशा स्वामी ${summary.dasha.mahadasha}: ${summary.dasha.mahaLordRole}`);
+  if (summary.dasha.antarLordRole) lines.push(`- अन्तर्दशा स्वामी ${summary.dasha.antardasha}: ${summary.dasha.antarLordRole}`);
+  if (summary.dasha.pratyantarLordRole) lines.push(`- प्रत्यन्तर्दशा स्वामी ${summary.dasha.pratyantardasha}: ${summary.dasha.pratyantarLordRole}`);
+  if (summary.transits.length > 0) {
+    lines.push('');
+    lines.push('सक्रिय गोचर:');
+    for (const t of summary.transits) {
+      lines.push(`- ${t.planet}: ${t.rashi}, ${t.note}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde, findCurrentDasha, describeDashaLordRole, describeYogas, computeTransits, summarizeChart, formatChartForPrompt };

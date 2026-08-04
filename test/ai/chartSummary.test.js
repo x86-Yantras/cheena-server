@@ -326,3 +326,101 @@ describe('computeTransits', () => {
     expect(transits).toEqual([]);
   });
 });
+
+// append to kundali-backend/test/ai/chartSummary.test.js
+import { summarizeChart, formatChartForPrompt } from '../../src/ai/chartSummary.js';
+
+describe('summarizeChart', () => {
+  const SAMPLE_RESULT = {
+    ascendant: { rashiIndex: 9, longitude: 276.5 }, // Makara, 6.5 degrees in
+    planets: [
+      { key: 'SUN', rashiIndex: 8, house: 12, longitude: 256.38, navamsa: { rashiIndex: 8 }, nakshatraIndex: 19, pada: 3 },
+      { key: 'MOON', rashiIndex: 2, house: 6, longitude: 62.9, navamsa: { rashiIndex: 4 }, nakshatraIndex: 4, pada: 1 },
+      { key: 'MARS', rashiIndex: 5, house: 9, longitude: 174.6, navamsa: { rashiIndex: 5 }, nakshatraIndex: 13, pada: 2 },
+      { key: 'MERCURY', rashiIndex: 7, house: 11, longitude: 237.58, navamsa: { rashiIndex: 7 }, nakshatraIndex: 17, pada: 4 },
+      { key: 'JUPITER', rashiIndex: 10, house: 2, longitude: 328.12, navamsa: { rashiIndex: 10 }, nakshatraIndex: 24, pada: 1 },
+      { key: 'VENUS', rashiIndex: 9, house: 1, longitude: 271.68, navamsa: { rashiIndex: 9 }, nakshatraIndex: 20, pada: 3 },
+      { key: 'SATURN', rashiIndex: 0, house: 4, longitude: 2.92, navamsa: { rashiIndex: 0 }, nakshatraIndex: 0, pada: 1 },
+      { key: 'RAHU', rashiIndex: 4, house: 8, longitude: 130.53, navamsa: { rashiIndex: 4 }, nakshatraIndex: 9, pada: 2 },
+      { key: 'KETU', rashiIndex: 10, house: 2, longitude: 310.53, navamsa: { rashiIndex: 10 }, nakshatraIndex: 24, pada: 4 },
+    ],
+    dasha: {
+      mahadashas: [{
+        lord: 'JUPITER', start: '2010-01-01T00:00:00.000Z', end: '2026-01-01T00:00:00.000Z',
+        subPeriods: [{
+          lord: 'KETU', start: '2024-01-01T00:00:00.000Z', end: '2025-01-01T00:00:00.000Z',
+          subPeriods: [{ lord: 'SATURN', start: '2020-01-01T00:00:00.000Z', end: '2099-01-01T00:00:00.000Z' }],
+        }],
+      }],
+    },
+    yogaDosha: {
+      yogas: [{ key: 'malavya', present: true }],
+      doshas: [],
+    },
+  };
+
+  beforeEach(() => {
+    process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
+    process.env.EPHEMERIS_SERVICE_API_KEY = 'test-api-key';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        julianDay: 2451545.0,
+        ascendantLongitude: 0,
+        planetLongitudes: { SATURN: 340, JUPITER: 130, RAHU: 40 },
+      }),
+    }));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('produces a ChartSummary with lagna, planets, houseLords, yogas, dasha, and transits', async () => {
+    const summary = await summarizeChart({ result: SAMPLE_RESULT, latitude: 27.7, longitude: 85.3, timezone: 'Asia/Kathmandu' });
+    expect(summary.lagna.rashi).toBe('मकर');
+    expect(summary.planets).toHaveLength(9);
+    expect(summary.houseLords).toHaveLength(12);
+    expect(summary.yogas.length).toBeGreaterThan(0);
+    expect(summary.dasha.mahadasha).toBeDefined();
+    expect(Array.isArray(summary.transits)).toBe(true);
+  });
+
+  it('every planet has all PlanetSummary fields', async () => {
+    const summary = await summarizeChart({ result: SAMPLE_RESULT, latitude: 27.7, longitude: 85.3, timezone: 'Asia/Kathmandu' });
+    for (const p of summary.planets) {
+      expect(p).toHaveProperty('name');
+      expect(p).toHaveProperty('rashi');
+      expect(p).toHaveProperty('house');
+      expect(p).toHaveProperty('lordOfText');
+      expect(p).toHaveProperty('functionalNature');
+      expect(p).toHaveProperty('dignity');
+      expect(p).toHaveProperty('isVargottama');
+      expect(p).toHaveProperty('isCombust');
+      expect(p).toHaveProperty('strengthNote');
+    }
+  });
+});
+
+describe('formatChartForPrompt', () => {
+  it('produces non-empty labelled Nepali text containing lagna, planets, and dasha sections', async () => {
+    const summary = {
+      lagna: { rashi: 'मकर', degree: '६°३०′', nakshatra: 'उत्तराषाढा', pada: 3, lord: 'शनि' },
+      moonRashi: 'मिथुन', sunRashi: 'धनु',
+      janmaNakshatra: { name: 'मृगशिरा', pada: 3, lord: 'मंगल' },
+      planets: [
+        { name: 'शुक्र', rashi: 'मकर', house: 1, degree: '१°४१′', lordOfText: 'पञ्चमेश+दशमेश', functionalNature: 'Yogakaraka', dignity: 'Neutral', isVargottama: true, isCombust: false, strengthNote: 'बलियो' },
+      ],
+      houseLords: [{ house: 1, rashi: 'मकर', lord: 'शनि', occupants: ['शुक्र'] }],
+      yogas: [{ name: 'गजकेसरी योग', effect: 'बुद्धि बलियो', nature: 'Benefic' }],
+      dasha: { mahadasha: 'बृहस्पति', antardasha: 'केतु', pratyantardasha: 'शनि', mahaLordRole: 'तृतीयेश', antarLordRole: 'भाव २ मा', pratyantarLordRole: 'लग्नेश' },
+      transits: [{ planet: 'शनि', rashi: 'मीन', houseFromMoon: 10, houseFromLagna: 3, isRetrograde: true, note: '१०म भाव, वक्री' }],
+    };
+    const text = formatChartForPrompt(summary);
+    expect(text).toContain('मकर');
+    expect(text).toContain('शुक्र');
+    expect(text).toContain('बृहस्पति');
+    expect(text).toContain('शनि');
+    expect(typeof text).toBe('string');
+    expect(text.length).toBeGreaterThan(50);
+  });
+});
