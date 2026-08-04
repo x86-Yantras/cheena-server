@@ -1,0 +1,46 @@
+import { RASHI_LORDS, EXALTATION_RASHI, OWN_RASHIS } from '../yogaCalculator.js';
+
+const KENDRA_HOUSES = [1, 4, 7, 10];
+const TRIKONA_HOUSES = [1, 5, 9];
+const MARAKA_HOUSES = [2, 7];
+const MALEFIC_LORD_HOUSES = [3, 6, 11];
+
+function computeHouseLords(ascendantRashiIndex) {
+  const houseLords = [];
+  for (let house = 1; house <= 12; house += 1) {
+    const rashiIndex = (ascendantRashiIndex + house - 1) % 12;
+    houseLords.push({ house, rashiIndex, lord: RASHI_LORDS[rashiIndex] });
+  }
+  return houseLords;
+}
+
+function computeLordOf(planetKey, ascendantRashiIndex) {
+  const houseLords = computeHouseLords(ascendantRashiIndex);
+  return houseLords.filter((h) => h.lord === planetKey).map((h) => h.house);
+}
+
+function computeFunctionalNature(planetKey, lordOf) {
+  if (lordOf.length === 0) return 'Neutral';
+  const isKendra = lordOf.some((h) => KENDRA_HOUSES.includes(h));
+  const isTrikona = lordOf.some((h) => TRIKONA_HOUSES.includes(h));
+  if (isKendra && isTrikona) return 'Yogakaraka';
+  // House 7 is both a kendra and a maraka house — maraka status is checked
+  // before the plain kendra/trikona Benefic case so a pure 7th-lord (no
+  // trikona) reads as Maraka, not Benefic, matching classical precedence.
+  if (lordOf.some((h) => MARAKA_HOUSES.includes(h))) return 'Maraka';
+  if (isKendra || isTrikona) return 'Benefic';
+  if (lordOf.some((h) => MALEFIC_LORD_HOUSES.includes(h))) return 'Malefic';
+  return 'Neutral';
+}
+
+function computeDignity(planetKey, rashiIndex) {
+  const exaltationRashi = EXALTATION_RASHI[planetKey];
+  if (exaltationRashi === undefined) return 'Neutral';
+  if (rashiIndex === exaltationRashi) return 'Exalted';
+  const debilitationRashi = (exaltationRashi + 6) % 12;
+  if (rashiIndex === debilitationRashi) return 'Debilitated';
+  if ((OWN_RASHIS[planetKey] || []).includes(rashiIndex)) return 'OwnSign';
+  return 'Neutral';
+}
+
+export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity };
