@@ -32,6 +32,25 @@ describe('auth routes', () => {
     expect(response.body.user.email).toBe('jane@example.com');
   });
 
+  it('register response includes a null name for a fresh user', async () => {
+    const app = createApp();
+    const response = await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'noname@example.com', password: 'hunter22222' });
+    expect(response.body.user.name).toBeNull();
+  });
+
+  it('login response includes the user name field', async () => {
+    const app = createApp();
+    await request(app)
+      .post('/api/auth/register')
+      .send({ email: 'namefield@example.com', password: 'hunter22222' });
+    const response = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'namefield@example.com', password: 'hunter22222' });
+    expect(response.body.user).toHaveProperty('name');
+  });
+
   it('returns 409 when the email is already registered', async () => {
     const app = createApp();
     await request(app)

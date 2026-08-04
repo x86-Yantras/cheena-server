@@ -39,13 +39,13 @@ router.post('/register', async (req, res, next) => {
     }
     const passwordHash = await hashPassword(req.body.password);
     const { rows } = await pool.query(
-      'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email',
+      'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email, name',
       [email, passwordHash]
     );
     const user = rows[0];
     const token = signToken({ userId: user.id });
     logger.info({ userId: user.id, email: user.email }, 'User account created successfully');
-    res.status(201).json({ token, user: { id: user.id, email: user.email } });
+    res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name } });
   } catch (err) {
     if (err.code === '23505') {
       logger.warn({ email }, 'Registration failed: email concurrent conflict');
@@ -68,7 +68,7 @@ router.post('/login', async (req, res, next) => {
   try {
     const pool = getPool();
     const { rows } = await pool.query(
-      'SELECT id, email, password_hash FROM users WHERE email = $1',
+      'SELECT id, email, name, password_hash FROM users WHERE email = $1',
       [email]
     );
     const user = rows[0];
@@ -79,7 +79,7 @@ router.post('/login', async (req, res, next) => {
     }
     const token = signToken({ userId: user.id });
     logger.info({ userId: user.id, email: user.email }, 'User logged in successfully');
-    res.json({ token, user: { id: user.id, email: user.email } });
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
   } catch (err) {
     logger.error(err, 'Failed to log in user due to database error');
     next(err);
