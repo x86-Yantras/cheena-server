@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity } from '../../src/ai/chartSummary.js';
+import { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust } from '../../src/ai/chartSummary.js';
 
 describe('computeHouseLords', () => {
   it('for a Makara (Capricorn, index 9) lagna, house 1 is ruled by Saturn and house 4 by Mars', () => {
@@ -91,5 +91,49 @@ describe('computeDignity', () => {
 
   it('Rahu (no friendship data) in any non-exalted/non-debilitated/non-own sign is Neutral', () => {
     expect(computeDignity('RAHU', 5)).toBe('Neutral');
+  });
+});
+
+describe('computeNeechaBhanga', () => {
+  it('cancels debilitation when the exaltation-sign lord sits in a kendra from lagna', () => {
+    // Saturn (SATURN) debilitated in Mesha (index 0, since exaltation is Tula=6, debilitation=0).
+    // Exaltation sign Tula(6) lord = VENUS (RASHI_LORDS[6]).
+    // Ascendant Makara(9): Venus's houses are 5,10 -> both are in TRIKONA/KENDRA. House 10 is a kendra.
+    const allPlanets = [{ key: 'VENUS', house: 10 }];
+    expect(computeNeechaBhanga('SATURN', 0, 9, allPlanets)).toBe(true);
+  });
+
+  it('does not cancel when neither exaltation-lord nor debilitation-lord is in a kendra', () => {
+    const allPlanets = [{ key: 'VENUS', house: 3 }, { key: 'MARS', house: 5 }];
+    // Debilitation sign of Saturn is Mesha(0), lord = MARS. Neither Venus(3) nor Mars(5) in kendra.
+    expect(computeNeechaBhanga('SATURN', 0, 9, allPlanets)).toBe(false);
+  });
+});
+
+describe('isVargottama', () => {
+  it('is true when D1 and D9 rashi indices match', () => {
+    expect(isVargottama(3, 3)).toBe(true);
+  });
+
+  it('is false when they differ', () => {
+    expect(isVargottama(3, 7)).toBe(false);
+  });
+});
+
+describe('computeIsCombust', () => {
+  it('Mercury within 12 degrees of the Sun is combust', () => {
+    expect(computeIsCombust('MERCURY', 100, 95)).toBe(true);
+  });
+
+  it('Mercury 20 degrees from the Sun is not combust', () => {
+    expect(computeIsCombust('MERCURY', 100, 80)).toBe(false);
+  });
+
+  it('handles the 0/360 wraparound', () => {
+    expect(computeIsCombust('VENUS', 2, 358)).toBe(true); // 4 degrees apart across the wrap
+  });
+
+  it('the Sun itself is never combust', () => {
+    expect(computeIsCombust('SUN', 100, 100)).toBe(false);
   });
 });
