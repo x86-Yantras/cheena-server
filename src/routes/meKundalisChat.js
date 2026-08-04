@@ -6,8 +6,8 @@ import logger from '../logger.js';
 
 const router = Router();
 
-const DAILY_CHAT_LIMIT = 150;
-const MAX_MESSAGE_LENGTH = 1000;
+const DAILY_CHAT_LIMIT = 1500;
+const MAX_MESSAGE_LENGTH = 2000;
 
 router.use(requireAuth);
 

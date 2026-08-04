@@ -1,16 +1,22 @@
-import { resolveProviderConfig } from './config.js';
-import { generate as generateAnthropic } from './providers/anthropic.js';
-import { generate as generateOpenaiCompatible } from './providers/openaiCompatible.js';
-import { generate as generateGemini } from './providers/gemini.js';
-import { summarizeChart, formatChartForPrompt } from './chartSummary.js';
+import { resolveProviderConfig } from "./config.js";
+import { generate as generateAnthropic } from "./providers/anthropic.js";
+import { generate as generateOpenaiCompatible } from "./providers/openaiCompatible.js";
+import { generate as generateGemini } from "./providers/gemini.js";
+import { summarizeChart, formatChartForPrompt } from "./chartSummary.js";
 
 const AREA_PROMPTS = {
-  overview: 'General question. Start from the lagna, lagna lord, Moon, and the strongest/weakest planet.',
-  career: 'Question is about career. Look at the 10th house, its lord, and the D10 context. Weigh Mercury-Venus (business-arts) and any planet in the 10th.',
-  marriage: 'Question is about marriage/relationship. Look at the 7th house, its lord, Venus (significator), and the 7th house of D9. Note Mangal dosha if present.',
-  health: 'Question is about health. Look at the lagna, 6th and 8th houses, and their lords. Frame difficulty as caution, never predict disease or death.',
-  wealth: 'Question is about wealth. Look at the 2nd and 11th houses, their lords, Jupiter-Venus (wealth significators), and any dhana yoga.',
-  education: 'Question is about education. Look at the 4th, 5th, 9th houses, Mercury-Jupiter (significators), and the D24 context.',
+  overview:
+    "General question. Start from the lagna, lagna lord, Moon, and the strongest/weakest planet.",
+  career:
+    "Question is about career. Look at the 10th house, its lord, and the D10 context. Weigh Mercury-Venus (business-arts) and any planet in the 10th.",
+  marriage:
+    "Question is about marriage/relationship. Look at the 7th house, its lord, Venus (significator), and the 7th house of D9. Note Mangal dosha if present.",
+  health:
+    "Question is about health. Look at the lagna, 6th and 8th houses, and their lords. Frame difficulty as caution, never predict disease or death.",
+  wealth:
+    "Question is about wealth. Look at the 2nd and 11th houses, their lords, Jupiter-Venus (wealth significators), and any dhana yoga.",
+  education:
+    "Question is about education. Look at the 4th, 5th, 9th houses, Mercury-Jupiter (significators), and the D24 context.",
 };
 
 const VALID_AREAS = Object.keys(AREA_PROMPTS);
@@ -67,27 +73,49 @@ const ADAPTERS_BY_FORMAT = {
   gemini: generateGemini,
 };
 
-async function buildPromptParts({ result, area, latitude, longitude, timezone, question }) {
-  const chartSummary = await summarizeChart({ result, latitude, longitude, timezone });
+async function buildPromptParts({
+  result,
+  area,
+  latitude,
+  longitude,
+  timezone,
+  question,
+}) {
+  const chartSummary = await summarizeChart({
+    result,
+    latitude,
+    longitude,
+    timezone,
+  });
   const chartText = formatChartForPrompt(chartSummary);
-  const systemPrompt = SYSTEM_PROMPT.replace('{chartData}', chartText);
-  const userContent = question !== AREA_PROMPTS[area]
-    ? [
-      AREA_PROMPTS[area],
-      '',
-      `User's question: ${question}`,
-    ].join('\n')
-    : AREA_PROMPTS[area];
+  const systemPrompt = SYSTEM_PROMPT.replace("{chartData}", chartText);
+  const userContent =
+    question !== AREA_PROMPTS[area]
+      ? [AREA_PROMPTS[area], "", `User's question: ${question}`].join("\n")
+      : AREA_PROMPTS[area];
   return { systemPrompt, userContent };
 }
 
-async function generateReading({ result, area, provider, model, latitude, longitude, timezone }) {
+async function generateReading({
+  result,
+  area,
+  provider,
+  model,
+  latitude,
+  longitude,
+  timezone,
+}) {
   if (!VALID_AREAS.includes(area)) {
     throw new Error(`Unknown reading area: ${area}`);
   }
   const providerConfig = resolveProviderConfig({ provider, model });
   const { systemPrompt, userContent } = await buildPromptParts({
-    result, area, latitude, longitude, timezone, question: AREA_PROMPTS[area],
+    result,
+    area,
+    latitude,
+    longitude,
+    timezone,
+    question: AREA_PROMPTS[area],
   });
 
   const adapter = ADAPTERS_BY_FORMAT[providerConfig.format];
@@ -106,30 +134,50 @@ async function generateReading({ result, area, provider, model, latitude, longit
   });
 }
 
-async function generateChatReply({ result, message, area, provider, model, history = [], latitude, longitude, timezone }) {
+async function generateChatReply({
+  result,
+  message,
+  area,
+  provider,
+  model,
+  history = [],
+  latitude,
+  longitude,
+  timezone,
+}) {
   if (message == null && area == null) {
-    throw new Error('Either area or message is required');
+    throw new Error("Either area or message is required");
   }
   if (area != null && !VALID_AREAS.includes(area)) {
     throw new Error(`Unknown reading area: ${area}`);
   }
   const providerConfig = resolveProviderConfig({ provider, model });
   const userQuestion = message != null ? message : AREA_PROMPTS[area];
-  const effectiveArea = area != null ? area : 'overview';
+  const effectiveArea = area != null ? area : "overview";
 
-  const { systemPrompt, userContent: baseUserContent } = await buildPromptParts({
-    result, area: effectiveArea, latitude, longitude, timezone, question: userQuestion,
-  });
+  const { systemPrompt, userContent: baseUserContent } = await buildPromptParts(
+    {
+      result,
+      area: effectiveArea,
+      latitude,
+      longitude,
+      timezone,
+      question: userQuestion,
+    },
+  );
 
   const transcript = history
-    .map((m) => `${m.role === 'user' ? 'User' : 'Astrologer'}: ${m.content}`)
-    .join('\n');
-  const userContent = transcript ? `${baseUserContent}\n\nConversation so far:\n${transcript}` : baseUserContent;
+    .map((m) => `${m.role === "user" ? "User" : "Astrologer"}: ${m.content}`)
+    .join("\n");
+  const userContent = transcript
+    ? `${baseUserContent}\n\nConversation so far:\n${transcript}`
+    : baseUserContent;
 
   const adapter = ADAPTERS_BY_FORMAT[providerConfig.format];
   if (!adapter) {
     throw new Error(`No adapter for provider format: ${providerConfig.format}`);
   }
+
   const reply = await adapter({
     apiKey: providerConfig.apiKey,
     baseUrl: providerConfig.baseUrl,
