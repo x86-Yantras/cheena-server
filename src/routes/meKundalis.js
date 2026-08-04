@@ -162,7 +162,7 @@ router.get('/:id/reading', async (req, res, next) => {
   try {
     const pool = getPool();
     const { rows: kundaliRows } = await pool.query(
-      'SELECT result FROM kundalis WHERE id = $1 AND user_id = $2',
+      'SELECT result, latitude, longitude, timezone FROM kundalis WHERE id = $1 AND user_id = $2',
       [req.params.id, req.userId]
     );
     if (kundaliRows.length === 0) {
@@ -197,7 +197,15 @@ router.get('/:id/reading', async (req, res, next) => {
     let content;
     try {
       logger.info({ kundaliId: req.params.id, area, provider, model }, 'Generating new AI reading');
-      content = await generateReading({ result: kundaliRows[0].result, area, provider, model });
+      content = await generateReading({
+        result: kundaliRows[0].result,
+        area,
+        provider,
+        model,
+        latitude: kundaliRows[0].latitude,
+        longitude: kundaliRows[0].longitude,
+        timezone: kundaliRows[0].timezone,
+      });
     } catch (err) {
       logger.error(err, 'AI reading generation failed');
       if (!isOverride) {
