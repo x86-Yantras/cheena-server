@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde, findCurrentDasha, describeDashaLordRole } from '../../src/ai/chartSummary.js';
+import { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde, findCurrentDasha, describeDashaLordRole, describeYogas, computeTransits } from '../../src/ai/chartSummary.js';
 
 describe('computeHouseLords', () => {
   it('for a Makara (Capricorn, index 9) lagna, house 1 is ruled by Saturn and house 4 by Mars', () => {
@@ -260,5 +260,69 @@ describe('describeDashaLordRole', () => {
   it('describes a lord that rules no house (Rahu/Ketu) using just its placement', () => {
     const planetsByKey = { RAHU: { house: 8 } };
     expect(describeDashaLordRole('RAHU', 9, planetsByKey)).toBe('भाव ८ मा');
+  });
+});
+
+describe('describeYogas', () => {
+  it('includes only present yogas/doshas with name/effect/nature', () => {
+    const yogaDosha = {
+      yogas: [{ key: 'gajakesari', present: true }, { key: 'rajaYoga', present: false }],
+      doshas: [{ key: 'mangal', present: true }],
+    };
+    const result = describeYogas(yogaDosha);
+    expect(result).toHaveLength(2);
+    const keys = result.map((y) => y.name);
+    expect(keys).toContain('गजकेसरी योग');
+    expect(keys).toContain('मंगल दोष');
+    expect(result.every((y) => typeof y.effect === 'string' && y.effect.length > 0)).toBe(true);
+  });
+
+  it('returns an empty array when nothing is present', () => {
+    const yogaDosha = { yogas: [{ key: 'gajakesari', present: false }], doshas: [] };
+    expect(describeYogas(yogaDosha)).toEqual([]);
+  });
+});
+
+describe('computeTransits', () => {
+  beforeEach(() => {
+    process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
+    process.env.EPHEMERIS_SERVICE_API_KEY = 'test-api-key';
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns TransitSummary entries for Saturn, Jupiter, Rahu, Ketu', async () => {
+    let callCount = 0;
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => {
+      callCount += 1;
+      // First call = "today", second call (from computeIsRetrograde) = "yesterday". Same longitudes for simplicity.
+      return {
+        ok: true,
+        json: async () => ({
+          julianDay: 2451545.0 + callCount,
+          ascendantLongitude: 0,
+          planetLongitudes: { SATURN: 340, JUPITER: 130, RAHU: 40 },
+        }),
+      };
+    }));
+    const swe = { SATURN: 'SATURN', JUPITER: 'JUPITER', RAHU: 'RAHU' };
+    const transits = await computeTransits({
+      moonRashiIndex: 2, ascendantRashiIndex: 9, latitude: 0, longitude: 0, timezone: 'UTC', swe,
+    });
+    expect(transits).toHaveLength(4); // Saturn, Jupiter, Rahu, Ketu
+    const saturnTransit = transits.find((t) => t.planet === 'शनि');
+    expect(saturnTransit.houseFromLagna).toBeGreaterThanOrEqual(1);
+    expect(saturnTransit.houseFromLagna).toBeLessThanOrEqual(12);
+    expect(typeof saturnTransit.note).toBe('string');
+  });
+
+  it('returns an empty array when the ephemeris call fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('down')));
+    const transits = await computeTransits({
+      moonRashiIndex: 2, ascendantRashiIndex: 9, latitude: 0, longitude: 0, timezone: 'UTC',
+      swe: { SATURN: 'SATURN', JUPITER: 'JUPITER', RAHU: 'RAHU' },
+    });
+    expect(transits).toEqual([]);
   });
 });

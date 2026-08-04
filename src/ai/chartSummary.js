@@ -1,7 +1,7 @@
 import { RASHI_LORDS, EXALTATION_RASHI, OWN_RASHIS } from '../yogaCalculator.js';
 import { PLANET_FRIENDSHIP } from '../matchData.js';
 import { computeJulianDay, computePlanetLongitude } from '../swissephService.js';
-import { ORDINAL_LORD_SUFFIX_NE, toDevanagariDigits } from './nepaliNames.js';
+import { PLANET_NAMES_NE, RASHI_NAMES_NE, ORDINAL_LORD_SUFFIX_NE, toDevanagariDigits } from './nepaliNames.js';
 
 const KENDRA_HOUSES = [1, 4, 7, 10];
 const TRIKONA_HOUSES = [1, 5, 9];
@@ -128,4 +128,81 @@ function describeDashaLordRole(lordKey, ascendantRashiIndex, planetsByKey) {
   return [houseText, placementText].filter(Boolean).join(', ');
 }
 
-export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde, findCurrentDasha, describeDashaLordRole };
+const YOGA_DESCRIPTIONS = {
+  gajakesari: { name: 'गजकेसरी योग', effect: 'बुद्धि, सम्मान र नेतृत्व क्षमता बलियो', nature: 'Benefic' },
+  budhaditya: { name: 'बुधादित्य योग', effect: 'बुद्धि र सञ्चार क्षमता तीक्ष्ण', nature: 'Benefic' },
+  chandraMangal: { name: 'चन्द्र-मंगल योग', effect: 'आर्थिक उद्यमशीलता, तर भावनात्मक अस्थिरताको जोखिम', nature: 'Mixed' },
+  ruchaka: { name: 'रुचक महापुरुष योग', effect: 'साहस, नेतृत्व र शारीरिक बल', nature: 'Benefic' },
+  bhadra: { name: 'भद्र महापुरुष योग', effect: 'बुद्धिमत्ता र व्यापारिक सफलता', nature: 'Benefic' },
+  hamsa: { name: 'हंस महापुरुष योग', effect: 'ज्ञान, आध्यात्मिकता र सम्मान', nature: 'Benefic' },
+  malavya: { name: 'मालव्य महापुरुष योग', effect: 'सौन्दर्य, सुख र समृद्धि', nature: 'Benefic' },
+  shasha: { name: 'शश महापुरुष योग', effect: 'अनुशासन, अधिकार र दीर्घकालीन सफलता', nature: 'Benefic' },
+  kemadruma: { name: 'केमद्रुम दोष', effect: 'संघर्ष र एक्लोपनको भावना, तर आत्मनिर्भरता पनि', nature: 'Malefic' },
+  rajaYoga: { name: 'राजयोग', effect: 'उन्नति, अधिकार र सामाजिक प्रतिष्ठा', nature: 'Benefic' },
+  mangal: { name: 'मंगल दोष', effect: 'वैवाहिक जीवनमा प्रारम्भिक तनावको सम्भावना', nature: 'Malefic' },
+  kaalSarpa: { name: 'कालसर्प दोष', effect: 'जीवनमा बाधा र ढिलाइ, तर असाधारण उपलब्धिको सम्भावना पनि', nature: 'Mixed' },
+  grahan: { name: 'ग्रहण दोष', effect: 'मानसिक अस्पष्टता वा आत्मविश्वासमा कमी हुन सक्ने', nature: 'Malefic' },
+  guruChandal: { name: 'गुरु-चाण्डाल योग', effect: 'वैचारिक द्वन्द्व, आध्यात्मिकतातर्फ झुकाव', nature: 'Mixed' },
+};
+
+function describeYogas(yogaDosha) {
+  const present = [...(yogaDosha.yogas || []), ...(yogaDosha.doshas || [])].filter((y) => y.present);
+  return present
+    .filter((y) => YOGA_DESCRIPTIONS[y.key])
+    .map((y) => {
+      const desc = YOGA_DESCRIPTIONS[y.key];
+      return { name: desc.name, planetsInvolved: [], house: null, effect: desc.effect, nature: desc.nature };
+    });
+}
+
+function houseBetween(fromRashiIndex, toRashiIndex) {
+  return ((toRashiIndex - fromRashiIndex + 12) % 12) + 1;
+}
+
+const TRANSIT_PLANETS = ['SATURN', 'JUPITER', 'RAHU', 'KETU'];
+
+async function computeTransits({ moonRashiIndex, ascendantRashiIndex, latitude, longitude, timezone, swe }) {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const nowTime = new Date().toISOString().slice(11, 16);
+    const jd = await computeJulianDay(today, nowTime, latitude, longitude, timezone);
+
+    const transits = [];
+    let rahuLongitude;
+    for (const planetKey of TRANSIT_PLANETS) {
+      const planetLongitude = planetKey === 'KETU'
+        ? (rahuLongitude + 180) % 360
+        : await computePlanetLongitude(jd, swe[planetKey]);
+      if (planetKey === 'RAHU') rahuLongitude = planetLongitude;
+
+      const rashiIndex = Math.floor(planetLongitude / 30) % 12;
+      const houseFromMoon = houseBetween(moonRashiIndex, rashiIndex);
+      const houseFromLagna = houseBetween(ascendantRashiIndex, rashiIndex);
+      const isRetrograde = planetKey === 'KETU' ? null : await computeIsRetrograde({
+        dateStr: today, timeStr: nowTime, latitude, longitude, timezone,
+        planetKey, currentLongitude: planetLongitude, swe,
+      });
+
+      const isSadeSati = planetKey === 'SATURN' && [12, 1, 2].includes(houseFromMoon);
+      const noteParts = [
+        `${toDevanagariDigits(houseFromMoon)}म भाव (चन्द्रबाट)`,
+        isRetrograde ? 'वक्री' : null,
+        planetKey === 'SATURN' ? (isSadeSati ? 'साढेसाती' : 'साढेसाती होइन') : null,
+      ].filter(Boolean);
+
+      transits.push({
+        planet: PLANET_NAMES_NE[planetKey],
+        rashi: RASHI_NAMES_NE[rashiIndex],
+        houseFromMoon,
+        houseFromLagna,
+        isRetrograde,
+        note: noteParts.join(', '),
+      });
+    }
+    return transits;
+  } catch {
+    return [];
+  }
+}
+
+export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde, findCurrentDasha, describeDashaLordRole, describeYogas, computeTransits };
