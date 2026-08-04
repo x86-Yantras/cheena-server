@@ -2,6 +2,7 @@ import { RASHI_LORDS, EXALTATION_RASHI, OWN_RASHIS } from '../yogaCalculator.js'
 import { PLANET_FRIENDSHIP } from '../matchData.js';
 import { computeJulianDay, computePlanetLongitude, getSwe } from '../swissephService.js';
 import { DASHA_SEQUENCE } from '../dashaCalculator.js';
+import logger from '../logger.js';
 import {
   PLANET_NAMES_NE, RASHI_NAMES_NE, NAKSHATRA_NAMES_NE, ORDINAL_LORD_SUFFIX_NE,
   formatDegree, toDevanagariDigits,
@@ -106,7 +107,8 @@ async function computeIsRetrograde({ dateStr, timeStr, latitude, longitude, time
     // If the shortest signed arc from prior to current is negative, the planet moved backward.
     const signedArc = ((currentLongitude - priorLongitude + 540) % 360) - 180;
     return signedArc < 0;
-  } catch {
+  } catch (err) {
+    logger.warn({ err, planetKey }, 'Failed to compute retrograde status, defaulting to null');
     return null;
   }
 }
@@ -204,7 +206,8 @@ async function computeTransits({ moonRashiIndex, ascendantRashiIndex, latitude, 
       });
     }
     return transits;
-  } catch {
+  } catch (err) {
+    logger.warn({ err }, 'Failed to compute transits, returning empty list');
     return [];
   }
 }
@@ -246,12 +249,12 @@ async function summarizeChart({ result, latitude, longitude, timezone }) {
       : undefined;
     const vargottama = isVargottama(p.rashiIndex, p.navamsa.rashiIndex);
     const combust = p.key === 'SUN' ? false : computeIsCombust(p.key, p.longitude, sun.longitude);
-    const retrograde = p.key === 'SUN' || p.key === 'MOON' || p.key === 'KETU'
-      ? null
-      : await computeIsRetrograde({
-        dateStr: new Date().toISOString().slice(0, 10), timeStr: '12:00', latitude, longitude, timezone,
-        planetKey: p.key, currentLongitude: p.longitude, swe,
-      });
+    // Natal retrograde is always null: computeIsRetrograde needs the birth-date epoch to
+    // compare against, but summarizeChart is only given { result, latitude, longitude, timezone }
+    // (no birth date/time), so we can't correctly compute it here without threading that
+    // through separately (out of scope for this fix). Transit retrograde in computeTransits
+    // is unaffected — it correctly uses "today" as its epoch.
+    const retrograde = null;
 
     planets.push({
       name: PLANET_NAMES_NE[p.key],

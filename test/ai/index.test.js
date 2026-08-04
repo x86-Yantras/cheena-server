@@ -91,7 +91,7 @@ describe('ai/index generateReading', () => {
     // chart text assertion checks the system message, not messages[1].
     expect(body.messages[0].content).toContain('मकर'); // Nepali lagna rashi text present, not raw JSON
     expect(body.temperature).toBe(0.5);
-    expect(body.max_tokens).toBe(600);
+    expect(body.max_tokens).toBe(900);
   });
 
   it('accepts the education area', async () => {

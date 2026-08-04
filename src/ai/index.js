@@ -59,7 +59,7 @@ explicitly listed in the data.
 - Never use fear to make a point. The goal is clarity and useful direction.`;
 
 const TEMPERATURE = 0.5;
-const MAX_TOKENS = 600;
+const MAX_TOKENS = 900;
 
 const ADAPTERS_BY_FORMAT = {
   anthropic: generateAnthropic,
@@ -71,11 +71,13 @@ async function buildPromptParts({ result, area, latitude, longitude, timezone, q
   const chartSummary = await summarizeChart({ result, latitude, longitude, timezone });
   const chartText = formatChartForPrompt(chartSummary);
   const systemPrompt = SYSTEM_PROMPT.replace('{chartData}', chartText);
-  const userContent = [
-    AREA_PROMPTS[area],
-    '',
-    `User's question: ${question}`,
-  ].join('\n');
+  const userContent = question !== AREA_PROMPTS[area]
+    ? [
+      AREA_PROMPTS[area],
+      '',
+      `User's question: ${question}`,
+    ].join('\n')
+    : AREA_PROMPTS[area];
   return { systemPrompt, userContent };
 }
 

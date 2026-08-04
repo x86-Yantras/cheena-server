@@ -383,6 +383,8 @@ describe('summarizeChart', () => {
     expect(summary.yogas.length).toBeGreaterThan(0);
     expect(summary.dasha.mahadasha).toBeDefined();
     expect(Array.isArray(summary.transits)).toBe(true);
+    // MOON.nakshatraIndex is 4 (Mrigashira) -> DASHA_SEQUENCE[4 % 9] = DASHA_SEQUENCE[4] = MARS.
+    expect(summary.janmaNakshatra.lord).toBe('मंगल');
   });
 
   it('every planet has all PlanetSummary fields', async () => {

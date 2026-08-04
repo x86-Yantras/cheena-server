@@ -172,7 +172,7 @@ router.get('/:id/reading', async (req, res, next) => {
 
     if (!isOverride) {
       const { rows: cachedRows } = await pool.query(
-        'SELECT content FROM ai_readings WHERE kundali_id = $1 AND area = $2',
+        "SELECT content FROM ai_readings WHERE kundali_id = $1 AND area = $2 AND created_at > now() - interval '7 days'",
         [req.params.id, area]
       );
       if (cachedRows.length > 0) {
@@ -227,7 +227,8 @@ router.get('/:id/reading', async (req, res, next) => {
 
     try {
       await pool.query(
-        'INSERT INTO ai_readings (kundali_id, area, content) VALUES ($1, $2, $3)',
+        `INSERT INTO ai_readings (kundali_id, area, content) VALUES ($1, $2, $3)
+         ON CONFLICT (kundali_id, area, lang) DO UPDATE SET content = EXCLUDED.content, created_at = now()`,
         [req.params.id, area, content]
       );
       logger.info({ kundaliId: req.params.id, area }, 'Saved newly generated AI reading to cache');
