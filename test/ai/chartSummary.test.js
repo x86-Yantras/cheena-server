@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde } from '../../src/ai/chartSummary.js';
+import { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde, findCurrentDasha, describeDashaLordRole } from '../../src/ai/chartSummary.js';
 
 describe('computeHouseLords', () => {
   it('for a Makara (Capricorn, index 9) lagna, house 1 is ruled by Saturn and house 4 by Mars', () => {
@@ -203,5 +203,62 @@ describe('computeIsRetrograde', () => {
       planetKey: 'SATURN', currentLongitude: 190, swe: { SATURN: 'SATURN' },
     });
     expect(result).toBeNull();
+  });
+});
+
+describe('findCurrentDasha', () => {
+  const mahadashas = [
+    {
+      lord: 'JUPITER', start: '2020-01-01T00:00:00.000Z', end: '2036-01-01T00:00:00.000Z',
+      subPeriods: [
+        {
+          lord: 'KETU', start: '2020-01-01T00:00:00.000Z', end: '2021-01-01T00:00:00.000Z',
+          subPeriods: [
+            { lord: 'SATURN', start: '2020-06-01T00:00:00.000Z', end: '2020-08-01T00:00:00.000Z' },
+            { lord: 'MERCURY', start: '2020-08-01T00:00:00.000Z', end: '2020-10-01T00:00:00.000Z' },
+          ],
+        },
+        {
+          lord: 'VENUS', start: '2021-01-01T00:00:00.000Z', end: '2023-01-01T00:00:00.000Z',
+          subPeriods: [],
+        },
+      ],
+    },
+  ];
+
+  it('finds the mahadasha, antardasha, and pratyantardasha containing the given timestamp', () => {
+    const nowMs = new Date('2020-07-01T00:00:00.000Z').getTime();
+    const result = findCurrentDasha(mahadashas, nowMs);
+    expect(result).toEqual({ mahadasha: 'JUPITER', antardasha: 'KETU', pratyantardasha: 'SATURN' });
+  });
+
+  it('returns null pratyantardasha when the antardasha has no matching sub-period', () => {
+    const nowMs = new Date('2022-01-01T00:00:00.000Z').getTime();
+    const result = findCurrentDasha(mahadashas, nowMs);
+    expect(result).toEqual({ mahadasha: 'JUPITER', antardasha: 'VENUS', pratyantardasha: null });
+  });
+
+  it('returns all nulls when the timestamp is outside every period', () => {
+    const nowMs = new Date('2050-01-01T00:00:00.000Z').getTime();
+    const result = findCurrentDasha(mahadashas, nowMs);
+    expect(result).toEqual({ mahadasha: null, antardasha: null, pratyantardasha: null });
+  });
+});
+
+describe('describeDashaLordRole', () => {
+  it('describes a lord ruling two houses and its current placement', () => {
+    // Makara lagna (9): Venus rules 5,10. Placed in house 2.
+    const planetsByKey = { VENUS: { house: 2 } };
+    expect(describeDashaLordRole('VENUS', 9, planetsByKey)).toBe('पञ्चमेश+दशमेश, भाव २ मा');
+  });
+
+  it('describes a single-house lord', () => {
+    const planetsByKey = { SATURN: { house: 4 } };
+    expect(describeDashaLordRole('SATURN', 9, planetsByKey)).toBe('लग्नेश+द्वितीयेश, भाव ४ मा');
+  });
+
+  it('describes a lord that rules no house (Rahu/Ketu) using just its placement', () => {
+    const planetsByKey = { RAHU: { house: 8 } };
+    expect(describeDashaLordRole('RAHU', 9, planetsByKey)).toBe('भाव ८ मा');
   });
 });

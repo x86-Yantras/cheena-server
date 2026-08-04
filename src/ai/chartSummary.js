@@ -1,6 +1,7 @@
 import { RASHI_LORDS, EXALTATION_RASHI, OWN_RASHIS } from '../yogaCalculator.js';
 import { PLANET_FRIENDSHIP } from '../matchData.js';
 import { computeJulianDay, computePlanetLongitude } from '../swissephService.js';
+import { ORDINAL_LORD_SUFFIX_NE, toDevanagariDigits } from './nepaliNames.js';
 
 const KENDRA_HOUSES = [1, 4, 7, 10];
 const TRIKONA_HOUSES = [1, 5, 9];
@@ -106,4 +107,25 @@ async function computeIsRetrograde({ dateStr, timeStr, latitude, longitude, time
   }
 }
 
-export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde };
+function findPeriodContaining(periods, nowMs) {
+  return periods.find((p) => nowMs >= new Date(p.start).getTime() && nowMs < new Date(p.end).getTime()) || null;
+}
+
+function findCurrentDasha(mahadashas, nowMs) {
+  const maha = findPeriodContaining(mahadashas, nowMs);
+  if (!maha) return { mahadasha: null, antardasha: null, pratyantardasha: null };
+  const antar = findPeriodContaining(maha.subPeriods || [], nowMs);
+  if (!antar) return { mahadasha: maha.lord, antardasha: null, pratyantardasha: null };
+  const pratyantar = findPeriodContaining(antar.subPeriods || [], nowMs);
+  return { mahadasha: maha.lord, antardasha: antar.lord, pratyantardasha: pratyantar ? pratyantar.lord : null };
+}
+
+function describeDashaLordRole(lordKey, ascendantRashiIndex, planetsByKey) {
+  const lordOf = computeLordOf(lordKey, ascendantRashiIndex);
+  const houseText = lordOf.map((h) => ORDINAL_LORD_SUFFIX_NE[h - 1]).join('+');
+  const planet = planetsByKey[lordKey];
+  const placementText = planet ? `भाव ${toDevanagariDigits(planet.house)} मा` : '';
+  return [houseText, placementText].filter(Boolean).join(', ');
+}
+
+export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde, findCurrentDasha, describeDashaLordRole };
