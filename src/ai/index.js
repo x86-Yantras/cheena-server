@@ -59,7 +59,7 @@ explicitly listed in the data.
 - Never use fear to make a point. The goal is clarity and useful direction.`;
 
 const TEMPERATURE = 0.5;
-const MAX_TOKENS = 900;
+const MAX_TOKENS = 2000;
 
 const ADAPTERS_BY_FORMAT = {
   anthropic: generateAnthropic,
