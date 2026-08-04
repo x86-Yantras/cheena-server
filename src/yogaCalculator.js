@@ -97,4 +97,4 @@ function computeYogaDosha({ planets, ascendant }) {
   return { yogas, doshas };
 }
 
-export { computeYogaDosha };
+export { computeYogaDosha, RASHI_LORDS, EXALTATION_RASHI, OWN_RASHIS };
