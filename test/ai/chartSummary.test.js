@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust } from '../../src/ai/chartSummary.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde } from '../../src/ai/chartSummary.js';
 
 describe('computeHouseLords', () => {
   it('for a Makara (Capricorn, index 9) lagna, house 1 is ruled by Saturn and house 4 by Mars', () => {
@@ -135,5 +135,73 @@ describe('computeIsCombust', () => {
 
   it('the Sun itself is never combust', () => {
     expect(computeIsCombust('SUN', 100, 100)).toBe(false);
+  });
+});
+
+describe('computeIsRetrograde', () => {
+  beforeEach(() => {
+    process.env.EPHEMERIS_SERVICE_URL = 'http://ephemeris.test';
+    process.env.EPHEMERIS_SERVICE_API_KEY = 'test-api-key';
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('is retrograde when longitude one day earlier was greater (planet moved backward)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        julianDay: 2451544.0,
+        ascendantLongitude: 0,
+        planetLongitudes: { SATURN: 195 }, // was at 195 yesterday, is at 190 today -> moved backward
+      }),
+    }));
+    const result = await computeIsRetrograde({
+      dateStr: '2000-01-02', timeStr: '12:00', latitude: 0, longitude: 0, timezone: 'UTC',
+      planetKey: 'SATURN', currentLongitude: 190, swe: { SATURN: 'SATURN' },
+    });
+    expect(result).toBe(true);
+  });
+
+  it('is not retrograde when longitude one day earlier was smaller (planet moved forward)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        julianDay: 2451544.0,
+        ascendantLongitude: 0,
+        planetLongitudes: { JUPITER: 100 },
+      }),
+    }));
+    const result = await computeIsRetrograde({
+      dateStr: '2000-01-02', timeStr: '12:00', latitude: 0, longitude: 0, timezone: 'UTC',
+      planetKey: 'JUPITER', currentLongitude: 101, swe: { JUPITER: 'JUPITER' },
+    });
+    expect(result).toBe(false);
+  });
+
+  it('handles the 0/360 wraparound correctly (near Mesha point)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        julianDay: 2451544.0,
+        ascendantLongitude: 0,
+        planetLongitudes: { SATURN: 359 },
+      }),
+    }));
+    const result = await computeIsRetrograde({
+      dateStr: '2000-01-02', timeStr: '12:00', latitude: 0, longitude: 0, timezone: 'UTC',
+      planetKey: 'SATURN', currentLongitude: 1, swe: { SATURN: 'SATURN' },
+    });
+    expect(result).toBe(false); // 359 -> 1 is forward motion across the wrap, not retrograde
+  });
+
+  it('returns null when the ephemeris call fails, instead of throwing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+    const result = await computeIsRetrograde({
+      dateStr: '2000-01-02', timeStr: '12:00', latitude: 0, longitude: 0, timezone: 'UTC',
+      planetKey: 'SATURN', currentLongitude: 190, swe: { SATURN: 'SATURN' },
+    });
+    expect(result).toBeNull();
   });
 });

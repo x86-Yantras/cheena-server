@@ -1,5 +1,6 @@
 import { RASHI_LORDS, EXALTATION_RASHI, OWN_RASHIS } from '../yogaCalculator.js';
 import { PLANET_FRIENDSHIP } from '../matchData.js';
+import { computeJulianDay, computePlanetLongitude } from '../swissephService.js';
 
 const KENDRA_HOUSES = [1, 4, 7, 10];
 const TRIKONA_HOUSES = [1, 5, 9];
@@ -85,4 +86,24 @@ function computeIsCombust(planetKey, planetLongitude, sunLongitude) {
   return angularDistance < limit;
 }
 
-export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust };
+function subtractOneDay(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+async function computeIsRetrograde({ dateStr, timeStr, latitude, longitude, timezone, planetKey, currentLongitude, swe }) {
+  try {
+    const priorDateStr = subtractOneDay(dateStr);
+    const jd = await computeJulianDay(priorDateStr, timeStr, latitude, longitude, timezone);
+    const priorLongitude = await computePlanetLongitude(jd, swe[planetKey]);
+    // Forward motion: current is ahead of prior, allowing for the 0/360 wrap.
+    // If the shortest signed arc from prior to current is negative, the planet moved backward.
+    const signedArc = ((currentLongitude - priorLongitude + 540) % 360) - 180;
+    return signedArc < 0;
+  } catch {
+    return null;
+  }
+}
+
+export { computeHouseLords, computeLordOf, computeFunctionalNature, computeDignity, computeNeechaBhanga, isVargottama, computeIsCombust, computeIsRetrograde };
