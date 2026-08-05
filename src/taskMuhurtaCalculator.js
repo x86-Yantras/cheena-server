@@ -1,3 +1,11 @@
+import { DateTime } from 'luxon';
+import tzlookup from 'tz-lookup';
+import { computeSunriseSunset } from './sunTimesService.js';
+import { getSwe, computeJulianDay, computePlanetLongitude } from './swissephService.js';
+import { computePanchang } from './panchangCalculator.js';
+import { nakshatraFromLongitude } from './kundaliCalculator.js';
+import { weekdayFromDate } from './muhurtaCalculator.js';
+
 const RIKTA_TITHI_INDICES = [3, 8, 13]; // 0-based tithiInPaksha (tithiIndex % 15): Chaturthi, Navami, Chaturdashi
 const AVOID_YOGA_NAMES = ['Vyatipata', 'Vaidhriti'];
 
@@ -59,4 +67,53 @@ function scoreDay({ tithi, yoga, karana, nakshatra, weekday }, taskRules) {
   };
 }
 
-export { TASK_RULES, scoreDay };
+async function snapshotPanchangaAtSunrise(dateStr, latitude, longitude, timezone) {
+  const { sunrise } = await computeSunriseSunset(dateStr, latitude, longitude, timezone);
+  const swe = await getSwe();
+  const jd = await computeJulianDay(dateStr, sunrise, latitude, longitude, timezone);
+  const sunLongitude = await computePlanetLongitude(jd, swe.SE_SUN);
+  const moonLongitude = await computePlanetLongitude(jd, swe.SE_MOON);
+  const { tithi, yoga, karana } = computePanchang({ sunLongitude, moonLongitude });
+  const nakshatra = nakshatraFromLongitude(moonLongitude);
+  const weekday = weekdayFromDate(dateStr, latitude, longitude, timezone);
+  return { tithi, yoga, karana, nakshatra, weekday };
+}
+
+async function computeDailyScore(dateStr, latitude, longitude, timezone, taskRules) {
+  const snapshot = await snapshotPanchangaAtSunrise(dateStr, latitude, longitude, timezone);
+  return { date: dateStr, ...scoreDay(snapshot, taskRules) };
+}
+
+const CONCURRENCY = 5;
+
+async function computeTaskMuhurta(task, fromDateStr, toDateStr, latitude, longitude, timezone) {
+  const taskRules = TASK_RULES[task];
+  const zone = timezone || tzlookup(latitude, longitude);
+  const totalDays = DateTime.fromISO(toDateStr, { zone }).diff(DateTime.fromISO(fromDateStr, { zone }), 'days').days + 1;
+  const dates = Array.from({ length: totalDays }, (_, i) =>
+    DateTime.fromISO(fromDateStr, { zone }).plus({ days: i }).toISODate());
+
+  const results = [];
+  for (let i = 0; i < dates.length; i += CONCURRENCY) {
+    const batch = dates.slice(i, i + CONCURRENCY);
+    const batchResults = await Promise.all(
+      batch.map((d) => computeDailyScore(d, latitude, longitude, timezone, taskRules)),
+    );
+    results.push(...batchResults);
+  }
+  results.sort((a, b) => b.score - a.score);
+
+  return {
+    task,
+    dateRange: { from: fromDateStr, to: toDateStr },
+    windows: results.map((r) => ({
+      start: r.date,
+      end: r.date,
+      score: r.score,
+      reasons: r.reasons,
+      warnings: r.warnings,
+    })),
+  };
+}
+
+export { TASK_RULES, scoreDay, snapshotPanchangaAtSunrise, computeDailyScore, computeTaskMuhurta };

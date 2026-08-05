@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { TASK_RULES, scoreDay } from '../src/taskMuhurtaCalculator.js';
+import { describe, it, expect, vi } from 'vitest';
+import * as sunTimesService from '../src/sunTimesService.js';
+import { TASK_RULES, scoreDay, computeDailyScore, computeTaskMuhurta } from '../src/taskMuhurtaCalculator.js';
 
 function snapshot({ tithiIndex, tithiName, yogaName, karanaName, nakshatraName, pada, weekday }) {
   return {
@@ -95,4 +96,34 @@ describe('scoreDay — 2026-08-17 (Monday), verified: Panchami, Chitra pada 1, S
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toMatch(/chitra/i);
   });
+});
+
+describe('computeDailyScore — live integration (Kathmandu, 2026-08-17, Monday)', () => {
+  it('matches the pure scoreDay result for business (100) using real ephemeris data', async () => {
+    const result = await computeDailyScore('2026-08-17', 27.7172, 85.3240, 'Asia/Kathmandu', TASK_RULES.business);
+    expect(result.date).toBe('2026-08-17');
+    expect(result.score).toBe(100);
+  }, 30000);
+
+  it('matches the pure scoreDay result for travel (80) using real ephemeris data, same date', async () => {
+    const result = await computeDailyScore('2026-08-17', 27.7172, 85.3240, 'Asia/Kathmandu', TASK_RULES.travel);
+    expect(result.score).toBe(80);
+  }, 30000);
+});
+
+describe('computeTaskMuhurta (orchestrator)', () => {
+  it('returns one window per day in range, sorted by score descending', async () => {
+    // 2026-08-17 (Mon, verified business=100) and 2026-08-11 (Tue, verified all-tasks=20)
+    // are both inside this range; the orchestrator must sort 100 before 20.
+    const result = await computeTaskMuhurta('business', '2026-08-11', '2026-08-17', 27.7172, 85.3240, 'Asia/Kathmandu');
+    expect(result.task).toBe('business');
+    expect(result.dateRange).toEqual({ from: '2026-08-11', to: '2026-08-17' });
+    expect(result.windows).toHaveLength(7); // Aug 11 through Aug 17 inclusive
+    expect(result.windows[0].score).toBeGreaterThanOrEqual(result.windows[1].score);
+    const aug17 = result.windows.find((w) => w.start === '2026-08-17');
+    const aug11 = result.windows.find((w) => w.start === '2026-08-11');
+    expect(aug17.score).toBe(100);
+    expect(aug11.score).toBe(20);
+    expect(result.windows[0]).toEqual(aug17); // the 100-score day should sort first
+  }, 60000);
 });
