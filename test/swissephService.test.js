@@ -69,6 +69,12 @@ describe('swissephService (HTTP client)', () => {
     );
   });
 
+  it('computeJulianDay passes an AbortSignal so a stalled connection cannot hang forever', async () => {
+    await computeJulianDay('2000-01-01', '12:00', 51.5074, -0.1278, 'UTC');
+    const [, options] = fetchMock.mock.calls[0];
+    expect(options.signal).toBeInstanceOf(AbortSignal);
+  });
+
   it('computeAscendantLongitude reuses the cached response from computeJulianDay for the same jd, without a second fetch', async () => {
     const jd = await computeJulianDay('2000-01-01', '12:00', 51.5074, -0.1278, 'UTC');
     const asc = await computeAscendantLongitude(jd, 51.5074, -0.1278);

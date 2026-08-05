@@ -13,6 +13,7 @@ const SWE_CONSTANTS = {
 };
 
 const CACHE_TTL_MS = 30000;
+const EPHEMERIS_FETCH_TIMEOUT_MS = 5000;
 // Planet longitudes are geocentric: identical for every observer at a given
 // julian day, so they're safely shared across concurrent requests that
 // happen to land on the same instant. The ascendant is NOT — it depends on
@@ -61,6 +62,7 @@ async function computeJulianDay(dateStr, timeStr, latitude, longitude, timezone)
       longitude,
       timezone,
     }),
+    signal: AbortSignal.timeout(EPHEMERIS_FETCH_TIMEOUT_MS),
   });
   let body;
   try {

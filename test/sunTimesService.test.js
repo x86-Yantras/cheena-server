@@ -40,6 +40,12 @@ describe('sunTimesService (HTTP client)', () => {
     );
   });
 
+  it('passes an AbortSignal so a stalled connection cannot hang forever', async () => {
+    await computeSunriseSunset('2026-07-27', 29.588806, 80.452122, 'Asia/Kathmandu');
+    const [, options] = fetchMock.mock.calls[0];
+    expect(options.signal).toBeInstanceOf(AbortSignal);
+  });
+
   it('throws a clear error when the service responds with a non-2xx status', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
