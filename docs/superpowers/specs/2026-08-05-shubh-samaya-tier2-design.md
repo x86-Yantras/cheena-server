@@ -37,8 +37,8 @@ explicitly so nobody mistakes this for a verified classical citation.
 
 ### Marriage
 
-- **Favorable Nakshatras** (source: DrikPanchang's dedicated auspicious-marriage-nakshatra page): Rohini, Mrigashira, Magha, Uttara Phalguni, Hasta, Swati, Anuradha, Moola, Uttara Ashadha, Uttara Bhadrapada, Revati.
-- **Pada exclusions:** Magha pada 1, Moola pada 1, Revati pada 4 are excluded even though the nakshatra itself is otherwise favorable.
+- **Favorable Nakshatras** (source: DrikPanchang's dedicated auspicious-marriage-nakshatra page): Rohini, Mrigashira, Magha, Uttara Phalguni, Hasta, Swati, Anuradha, Mula, Uttara Ashadha, Uttara Bhadrapada, Revati.
+- **Pada exclusions:** Magha pada 1, Mula pada 1, Revati pada 4 are excluded even though the nakshatra itself is otherwise favorable.
 - **Favorable weekdays:** Monday, Wednesday, Thursday, Friday.
 
 ### Business Start
@@ -75,8 +75,8 @@ const AVOID_YOGA_NAMES = ['Vyatipata', 'Vaidhriti'];
 
 const TASK_RULES = {
   marriage: {
-    nakshatras: ['Rohini', 'Mrigashira', 'Magha', 'Uttara Phalguni', 'Hasta', 'Swati', 'Anuradha', 'Moola', 'Uttara Ashadha', 'Uttara Bhadrapada', 'Revati'],
-    padaExclusions: { Magha: [1], Moola: [1], Revati: [4] },
+    nakshatras: ['Rohini', 'Mrigashira', 'Magha', 'Uttara Phalguni', 'Hasta', 'Swati', 'Anuradha', 'Mula', 'Uttara Ashadha', 'Uttara Bhadrapada', 'Revati'],
+    padaExclusions: { Magha: [1], Mula: [1], Revati: [4] },
     weekdays: ['monday', 'wednesday', 'thursday', 'friday'],
   },
   business: {
