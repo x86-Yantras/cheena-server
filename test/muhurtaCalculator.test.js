@@ -3,6 +3,7 @@ import {
   parseHHmm, formatMinutes, weekdayFromDate,
   computeRahuKaal, computeYamaganda, computeGulikaKaal,
   computeAbhijitMuhurta, computeBrahmaMuhurta, computeChoghadiya,
+  computeBhadraWindows, _computeBhadraWindowsFromKaranaLookup,
 } from '../src/muhurtaCalculator.js';
 
 // Verified reference: Baitadi (29.588806, 80.452122), Monday 2026-07-27,
@@ -121,4 +122,67 @@ describe('computeChoghadiya (Baitadi, Monday 2026-07-27, next sunrise 05:44)', (
     const { day } = computeChoghadiya('sunday', SUNRISE_MIN, SUNSET_MIN, NEXT_SUNRISE_MIN);
     expect(day[0].name).toBe('Udveg');
   });
+});
+
+describe('computeBhadraWindows — boundary-stitching logic (pure, injected karana lookup)', () => {
+  // _computeBhadraWindowsFromKaranaLookup takes a (timeMin) => Promise<karanaHalfIndex>
+  // function directly, so this test doesn't touch the real ephemeris service.
+  // karanaHalfIndex 7 is the first Vishti: (7-1) % 7 = 6, and
+  // MOVABLE_KARANA_NAMES[6] = 'Vishti'. Indices 14, 21, 28... are Vishti too.
+
+  it('returns no window when the karana index is constant and not Vishti all day', async () => {
+    const lookup = async () => 1; // Bava all day
+    const windows = await _computeBhadraWindowsFromKaranaLookup(lookup, 300, 1200);
+    expect(windows).toEqual([]);
+  });
+
+  it('returns one full-day window when the karana index is constant and IS Vishti all day', async () => {
+    const lookup = async () => 7; // Vishti all day: (7-1)%7 = 6 = Vishti
+    const windows = await _computeBhadraWindowsFromKaranaLookup(lookup, 300, 1200);
+    expect(windows).toEqual([{ name: 'Bhadra (Vishti Karana)', start: 300, end: 1200, type: 'inauspicious' }]);
+  });
+
+  it('returns a partial window ending at sunset when karana transitions INTO Vishti during the day', async () => {
+    // index 6 (Vanija, not Vishti) before minute 750, index 7 (Vishti) from 750 on.
+    const lookup = async (min) => (min < 750 ? 6 : 7);
+    const windows = await _computeBhadraWindowsFromKaranaLookup(lookup, 300, 1200);
+    expect(windows).toHaveLength(1);
+    expect(windows[0].name).toBe('Bhadra (Vishti Karana)');
+    expect(windows[0].start).toBeCloseTo(750, 0);
+    expect(windows[0].end).toBe(1200);
+  });
+
+  it('returns a partial window starting at sunrise when karana transitions OUT of Vishti during the day', async () => {
+    // index 7 (Vishti) before minute 600, index 8 (Bava again, not Vishti) from 600 on.
+    const lookup = async (min) => (min < 600 ? 7 : 8);
+    const windows = await _computeBhadraWindowsFromKaranaLookup(lookup, 300, 1200);
+    expect(windows).toHaveLength(1);
+    expect(windows[0].start).toBe(300);
+    expect(windows[0].end).toBeCloseTo(600, 0);
+  });
+});
+
+describe('computeBhadraWindows — real ephemeris integration (Kathmandu, 2026-08-01)', () => {
+  // Verified: at Kathmandu (27.7172, 85.3240), 2026-08-01, altitude 0, sunrise
+  // ~05:31 (321min) and sunset ~18:49 (1129min), the karana index goes from
+  // 34 (Vanija, not Vishti) at sunrise to 35 (Vishti) at sunset, crossing
+  // near 11:08 local (~668min). Computed directly with this repo's
+  // swissephService against the real ephemeris service for this plan.
+  it('finds the Vishti window ending at sunset on 2026-08-01 in Kathmandu', async () => {
+    const sunriseMin = parseHHmm('05:31');
+    const sunsetMin = parseHHmm('18:49');
+    const windows = await computeBhadraWindows('2026-08-01', sunriseMin, sunsetMin, 27.7172, 85.3240, 'Asia/Kathmandu');
+    expect(windows).toHaveLength(1);
+    expect(windows[0].name).toBe('Bhadra (Vishti Karana)');
+    expect(formatMinutes(windows[0].end)).toBe('18:49');
+    const crossingMinutes = windows[0].start;
+    expect(Math.abs(crossingMinutes - parseHHmm('11:08'))).toBeLessThan(3); // within 3 min of the pre-verified crossing
+  }, 30000);
+
+  it('returns an empty array on a day with no karana transition into/out of Vishti (Baitadi, Monday 2026-07-27)', async () => {
+    const windows = await computeBhadraWindows('2026-07-27', SUNRISE_MIN, SUNSET_MIN, 29.588806, 80.452122, 'Asia/Kathmandu');
+    // Pre-verified for this plan: karana stays in the 25/26 range (Taitila/Gara)
+    // across this day at this location, never touching Vishti.
+    expect(windows).toEqual([]);
+  }, 30000);
 });

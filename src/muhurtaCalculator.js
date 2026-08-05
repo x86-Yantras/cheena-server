@@ -1,5 +1,7 @@
 import { DateTime } from 'luxon';
 import tzlookup from 'tz-lookup';
+import { getSwe, computeJulianDay, computePlanetLongitude } from './swissephService.js';
+import { computePanchang, karanaNameForIndex } from './panchangCalculator.js';
 
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
@@ -97,8 +99,55 @@ function computeChoghadiya(weekday, sunriseMin, sunsetMin, nextSunriseMin) {
   return { day, night };
 }
 
+const VISHTI_KARANA_NAME = 'Vishti';
+
+async function karanaIndexAt(dateStr, timeStr, latitude, longitude, timezone) {
+  const swe = await getSwe();
+  const jd = await computeJulianDay(dateStr, timeStr, latitude, longitude, timezone);
+  const sunLongitude = await computePlanetLongitude(jd, swe.SE_SUN);
+  const moonLongitude = await computePlanetLongitude(jd, swe.SE_MOON);
+  return computePanchang({ sunLongitude, moonLongitude }).karana.karanaHalfIndex;
+}
+
+// Core boundary-stitching logic, independent of how a karana index at a given
+// minute-of-day is looked up. `karanaIndexLookup` is `(minuteOfDay) => Promise<number>`.
+// Exported (with a leading underscore) purely so tests can inject a synthetic
+// lookup and verify the stitching logic without a real ephemeris call.
+async function _computeBhadraWindowsFromKaranaLookup(karanaIndexLookup, sunriseMin, sunsetMin) {
+  const startIndex = await karanaIndexLookup(sunriseMin);
+  const endIndex = await karanaIndexLookup(sunsetMin);
+
+  const boundaries = [sunriseMin];
+  for (let boundary = startIndex + 1; boundary <= endIndex; boundary++) {
+    let lo = boundaries[boundaries.length - 1];
+    let hi = sunsetMin;
+    while (hi - lo > 0.01) {
+      const mid = (lo + hi) / 2;
+      const index = await karanaIndexLookup(mid);
+      if (index < boundary) lo = mid; else hi = mid;
+    }
+    boundaries.push(hi);
+  }
+  boundaries.push(sunsetMin);
+
+  const windows = [];
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const segmentIndex = startIndex + i;
+    if (karanaNameForIndex(segmentIndex) === VISHTI_KARANA_NAME) {
+      windows.push({ name: 'Bhadra (Vishti Karana)', start: boundaries[i], end: boundaries[i + 1], type: 'inauspicious' });
+    }
+  }
+  return windows;
+}
+
+async function computeBhadraWindows(dateStr, sunriseMin, sunsetMin, latitude, longitude, timezone) {
+  const lookup = (minuteOfDay) => karanaIndexAt(dateStr, formatMinutes(minuteOfDay), latitude, longitude, timezone);
+  return _computeBhadraWindowsFromKaranaLookup(lookup, sunriseMin, sunsetMin);
+}
+
 export {
   parseHHmm, formatMinutes, weekdayFromDate, dayPartWindow,
   computeRahuKaal, computeYamaganda, computeGulikaKaal,
   computeAbhijitMuhurta, computeBrahmaMuhurta, computeChoghadiya,
+  computeBhadraWindows, _computeBhadraWindowsFromKaranaLookup,
 };

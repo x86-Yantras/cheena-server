@@ -60,4 +60,4 @@ function computePanchang({ sunLongitude, moonLongitude }) {
   };
 }
 
-export { computePanchang };
+export { computePanchang, karanaNameForIndex };
