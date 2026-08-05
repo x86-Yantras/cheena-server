@@ -35,6 +35,16 @@ describe('scoreDay — marriage, 2026-07-17 (Friday), verified: Tritiya, Magha p
     expect(result.warnings[0]).toMatch(/vyatipata/i);
     expect(result.reasons).toHaveLength(4);
   });
+
+  it('returns a checks array with 5 named entries in order, with Yoga marked as the sole failure', () => {
+    const result = scoreDay(daySnapshot, TASK_RULES.marriage);
+    expect(result.checks).toHaveLength(5);
+    expect(result.checks.map((c) => c.name)).toEqual(['Tithi', 'Nakshatra', 'Yoga', 'Karana', 'Vara']);
+    const yogaCheck = result.checks.find((c) => c.name === 'Yoga');
+    expect(yogaCheck.pass).toBe(false);
+    expect(yogaCheck.reason).toBe(result.warnings[0]);
+    expect(result.checks.filter((c) => !c.pass)).toHaveLength(1);
+  });
 });
 
 describe('scoreDay — Magha pada exclusion (pure, synthetic — no live date needed)', () => {
@@ -120,8 +130,12 @@ describe('computeTaskMuhurta (orchestrator)', () => {
     expect(result.dateRange).toEqual({ from: '2026-08-11', to: '2026-08-17' });
     expect(result.windows).toHaveLength(7); // Aug 11 through Aug 17 inclusive
     expect(result.windows[0].score).toBeGreaterThanOrEqual(result.windows[1].score);
-    const aug17 = result.windows.find((w) => w.start === '2026-08-17');
-    const aug11 = result.windows.find((w) => w.start === '2026-08-11');
+    const aug17 = result.windows.find((w) => w.start === '2026-08-17T00:00');
+    const aug11 = result.windows.find((w) => w.start === '2026-08-11T00:00');
+    expect(aug17.end).toBe('2026-08-18T00:00');
+    expect(aug17.granularity).toBe('day');
+    expect(aug11.end).toBe('2026-08-12T00:00');
+    expect(aug11.granularity).toBe('day');
     expect(aug17.score).toBe(100);
     expect(aug11.score).toBe(20);
     expect(result.windows[0]).toEqual(aug17); // the 100-score day should sort first

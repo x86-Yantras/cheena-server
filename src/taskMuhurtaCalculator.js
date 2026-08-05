@@ -30,27 +30,32 @@ const TASK_RULES = {
 function scoreDay({ tithi, yoga, karana, nakshatra, weekday }, taskRules) {
   const checks = [
     {
+      name: 'Tithi',
       pass: !RIKTA_TITHI_INDICES.includes(tithi.tithiIndex % 15),
       passReason: `${tithi.tithiName} is not a Rikta tithi`,
       failReason: `${tithi.tithiName} is a Rikta tithi`,
     },
     {
+      name: 'Nakshatra',
       pass: taskRules.nakshatras.includes(nakshatra.nakshatraName)
         && !(taskRules.padaExclusions[nakshatra.nakshatraName] || []).includes(nakshatra.pada),
       passReason: `${nakshatra.nakshatraName} pada ${nakshatra.pada} favours this task`,
       failReason: `${nakshatra.nakshatraName} pada ${nakshatra.pada} does not favour this task`,
     },
     {
+      name: 'Yoga',
       pass: !AVOID_YOGA_NAMES.includes(yoga.yogaName),
       passReason: `${yoga.yogaName} yoga is not inauspicious`,
       failReason: `${yoga.yogaName} yoga should be avoided`,
     },
     {
+      name: 'Karana',
       pass: karana.karanaName !== 'Vishti',
       passReason: 'No Vishti karana active',
       failReason: 'Vishti karana (Bhadra) is active',
     },
     {
+      name: 'Vara',
       pass: taskRules.weekdays.includes(weekday),
       passReason: `${weekday} is a favourable weekday`,
       failReason: `${weekday} is not an ideal weekday`,
@@ -64,6 +69,7 @@ function scoreDay({ tithi, yoga, karana, nakshatra, weekday }, taskRules) {
     score: Math.round((passed.length / checks.length) * 100),
     reasons: passed.map((c) => c.passReason),
     warnings: failed.map((c) => c.failReason),
+    checks: checks.map((c) => ({ name: c.name, pass: c.pass, reason: c.pass ? c.passReason : c.failReason })),
   };
 }
 
@@ -107,8 +113,9 @@ async function computeTaskMuhurta(task, fromDateStr, toDateStr, latitude, longit
     task,
     dateRange: { from: fromDateStr, to: toDateStr },
     windows: results.map((r) => ({
-      start: r.date,
-      end: r.date,
+      start: `${r.date}T00:00`,
+      end: DateTime.fromISO(r.date, { zone }).plus({ days: 1 }).toFormat("yyyy-MM-dd'T'HH:mm"),
+      granularity: 'day',
       score: r.score,
       reasons: r.reasons,
       warnings: r.warnings,
