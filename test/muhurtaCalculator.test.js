@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseHHmm, formatMinutes, weekdayFromDate,
   computeRahuKaal, computeYamaganda, computeGulikaKaal,
-  computeAbhijitMuhurta, computeBrahmaMuhurta,
+  computeAbhijitMuhurta, computeBrahmaMuhurta, computeChoghadiya,
 } from '../src/muhurtaCalculator.js';
 
 // Verified reference: Baitadi (29.588806, 80.452122), Monday 2026-07-27,
@@ -78,5 +78,47 @@ describe('weekday-math periods (Baitadi, Monday 2026-07-27)', () => {
     expect(window.type).toBe('auspicious');
     expect(formatMinutes(window.start)).toBe('04:08');
     expect(formatMinutes(window.end)).toBe('04:56');
+  });
+});
+
+describe('computeChoghadiya (Baitadi, Monday 2026-07-27, next sunrise 05:44)', () => {
+  const NEXT_SUNRISE_MIN = parseHHmm('05:44') + 1440; // 2026-07-28
+
+  it('day sequence starts at Amrit (Monday) and follows the fixed rotation', () => {
+    const { day } = computeChoghadiya('monday', SUNRISE_MIN, SUNSET_MIN, NEXT_SUNRISE_MIN);
+    expect(day.map((slot) => slot.name)).toEqual(['Amrit', 'Kaal', 'Shubh', 'Rog', 'Udveg', 'Chal', 'Labh', 'Amrit']);
+    expect(day).toHaveLength(8);
+  });
+
+  it('day slot times match the 8-part division of daytime', () => {
+    const { day } = computeChoghadiya('monday', SUNRISE_MIN, SUNSET_MIN, NEXT_SUNRISE_MIN);
+    expect(formatMinutes(day[0].start)).toBe('05:44');
+    expect(formatMinutes(day[0].end)).toBe('07:25');
+    expect(formatMinutes(day[7].start)).toBe('17:34');
+    expect(formatMinutes(day[7].end)).toBe('19:15');
+  });
+
+  it('each slot carries the correct nature and lord', () => {
+    const { day } = computeChoghadiya('monday', SUNRISE_MIN, SUNSET_MIN, NEXT_SUNRISE_MIN);
+    expect(day[0]).toMatchObject({ name: 'Amrit', nature: 'auspicious', lord: 'Moon' });
+    expect(day[3]).toMatchObject({ name: 'Rog', nature: 'inauspicious', lord: 'Mars' });
+    expect(day[4]).toMatchObject({ name: 'Udveg', nature: 'inauspicious', lord: 'Sun' });
+  });
+
+  it('night sequence continues the rotation from where day left off (Kaal, after day ends on Amrit)', () => {
+    const { night } = computeChoghadiya('monday', SUNRISE_MIN, SUNSET_MIN, NEXT_SUNRISE_MIN);
+    expect(night.map((slot) => slot.name)).toEqual(['Kaal', 'Shubh', 'Rog', 'Udveg', 'Chal', 'Labh', 'Amrit', 'Kaal']);
+    expect(night).toHaveLength(8);
+  });
+
+  it('night slot times match the 8-part division of night (sunset to next sunrise), ending exactly at next sunrise', () => {
+    const { night } = computeChoghadiya('monday', SUNRISE_MIN, SUNSET_MIN, NEXT_SUNRISE_MIN);
+    expect(formatMinutes(night[0].start)).toBe('19:15');
+    expect(formatMinutes(night[7].end)).toBe('05:44');
+  });
+
+  it('a different weekday starts at a different Choghadiya (Sunday starts at Udveg)', () => {
+    const { day } = computeChoghadiya('sunday', SUNRISE_MIN, SUNSET_MIN, NEXT_SUNRISE_MIN);
+    expect(day[0].name).toBe('Udveg');
   });
 });

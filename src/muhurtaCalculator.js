@@ -62,8 +62,43 @@ function computeBrahmaMuhurta(sunriseMin) {
   return { name: 'Brahma Muhurta', start: sunriseMin - 96, end: sunriseMin - 48, type: 'auspicious' };
 }
 
+const CHOGHADIYA_NATURE = {
+  Amrit: 'auspicious', Shubh: 'auspicious', Labh: 'auspicious',
+  Chal: 'neutral',
+  Udveg: 'inauspicious', Rog: 'inauspicious', Kaal: 'inauspicious',
+};
+const CHOGHADIYA_LORD = {
+  Amrit: 'Moon', Shubh: 'Jupiter', Labh: 'Mercury', Chal: 'Venus',
+  Udveg: 'Sun', Rog: 'Mars', Kaal: 'Saturn',
+};
+const CHOGHADIYA_CYCLE = ['Udveg', 'Chal', 'Labh', 'Amrit', 'Kaal', 'Shubh', 'Rog'];
+const DAY_START_CHOGHADIYA = {
+  sunday: 'Udveg', monday: 'Amrit', tuesday: 'Rog', wednesday: 'Labh',
+  thursday: 'Shubh', friday: 'Chal', saturday: 'Kaal',
+};
+
+function choghadiyaSequence(startName, count) {
+  const startIndex = CHOGHADIYA_CYCLE.indexOf(startName);
+  return Array.from({ length: count }, (_, i) => CHOGHADIYA_CYCLE[(startIndex + i) % 7]);
+}
+
+function toChoghadiyaSlot(name, window) {
+  return { name, ...window, nature: CHOGHADIYA_NATURE[name], lord: CHOGHADIYA_LORD[name] };
+}
+
+function computeChoghadiya(weekday, sunriseMin, sunsetMin, nextSunriseMin) {
+  const dayNames = choghadiyaSequence(DAY_START_CHOGHADIYA[weekday], 8);
+  const day = dayNames.map((name, i) => toChoghadiyaSlot(name, dayPartWindow(sunriseMin, sunsetMin, i + 1, 8)));
+
+  const nightStartIndex = (CHOGHADIYA_CYCLE.indexOf(dayNames[7]) + 1) % 7;
+  const nightNames = choghadiyaSequence(CHOGHADIYA_CYCLE[nightStartIndex], 8);
+  const night = nightNames.map((name, i) => toChoghadiyaSlot(name, dayPartWindow(sunsetMin, nextSunriseMin, i + 1, 8)));
+
+  return { day, night };
+}
+
 export {
   parseHHmm, formatMinutes, weekdayFromDate, dayPartWindow,
   computeRahuKaal, computeYamaganda, computeGulikaKaal,
-  computeAbhijitMuhurta, computeBrahmaMuhurta,
+  computeAbhijitMuhurta, computeBrahmaMuhurta, computeChoghadiya,
 };
