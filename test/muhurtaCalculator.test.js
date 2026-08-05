@@ -112,9 +112,12 @@ describe('computeChoghadiya (Baitadi, Monday 2026-07-27, next sunrise 05:44)', (
     expect(day[4]).toMatchObject({ name: 'Udveg', nature: 'inauspicious', lord: 'Sun' });
   });
 
-  it('night sequence continues the rotation from where day left off (Kaal, after day ends on Amrit)', () => {
+  it('night sequence follows its own cycle and weekday-start table, not a continuation of the day cycle (Monday starts at Chal)', () => {
+    // Verified against DrikPanchang's published panchanga for Kathmandu,
+    // Monday 2026-07-27: night order is Chal, Rog, Kaal, Labh, Udveg, Shubh,
+    // Amrit, Chal.
     const { night } = computeChoghadiya('monday', SUNRISE_MIN, SUNSET_MIN, NEXT_SUNRISE_MIN);
-    expect(night.map((slot) => slot.name)).toEqual(['Kaal', 'Shubh', 'Rog', 'Udveg', 'Chal', 'Labh', 'Amrit', 'Kaal']);
+    expect(night.map((slot) => slot.name)).toEqual(['Chal', 'Rog', 'Kaal', 'Labh', 'Udveg', 'Shubh', 'Amrit', 'Chal']);
     expect(night).toHaveLength(8);
   });
 
@@ -127,6 +130,26 @@ describe('computeChoghadiya (Baitadi, Monday 2026-07-27, next sunrise 05:44)', (
   it('a different weekday starts at a different Choghadiya (Sunday starts at Udveg)', () => {
     const { day } = computeChoghadiya('sunday', SUNRISE_MIN, SUNSET_MIN, NEXT_SUNRISE_MIN);
     expect(day[0].name).toBe('Udveg');
+  });
+
+  // Regression lock for all 7 weekdays' day-start and night-start Choghadiya,
+  // verified against DrikPanchang's published panchanga for Kathmandu,
+  // 2026-07-27 (Monday) through 2026-08-02 (Sunday). Day sequences follow a
+  // simple continuation of CHOGHADIYA_CYCLE from DAY_START_CHOGHADIYA; night
+  // sequences follow the separate NIGHT_CHOGHADIYA_CYCLE from
+  // NIGHT_START_CHOGHADIYA — confirmed distinct for every weekday.
+  it.each([
+    ['sunday', 'Udveg', 'Shubh'],
+    ['monday', 'Amrit', 'Chal'],
+    ['tuesday', 'Rog', 'Kaal'],
+    ['wednesday', 'Labh', 'Udveg'],
+    ['thursday', 'Shubh', 'Amrit'],
+    ['friday', 'Chal', 'Rog'],
+    ['saturday', 'Kaal', 'Labh'],
+  ])('%s: day starts at %s, night starts at %s (verified against published panchanga)', (weekday, expectedDayStart, expectedNightStart) => {
+    const { day, night } = computeChoghadiya(weekday, SUNRISE_MIN, SUNSET_MIN, NEXT_SUNRISE_MIN);
+    expect(day[0].name).toBe(expectedDayStart);
+    expect(night[0].name).toBe(expectedNightStart);
   });
 });
 

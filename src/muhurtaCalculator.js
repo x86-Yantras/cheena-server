@@ -80,9 +80,21 @@ const DAY_START_CHOGHADIYA = {
   thursday: 'Shubh', friday: 'Chal', saturday: 'Kaal',
 };
 
-function choghadiyaSequence(startName, count) {
-  const startIndex = CHOGHADIYA_CYCLE.indexOf(startName);
-  return Array.from({ length: count }, (_, i) => CHOGHADIYA_CYCLE[(startIndex + i) % 7]);
+// Night Choghadiya does NOT continue the day's cycle — it follows its own
+// separate cycle order and its own weekday-start table. Verified against
+// DrikPanchang's published panchanga for Kathmandu across all 7 weekdays
+// (2026-07-27 through 2026-08-02): the day sequence matched a simple
+// continuation of CHOGHADIYA_CYCLE perfectly, but night did not — night
+// matches this distinct cycle instead, confirmed for every weekday.
+const NIGHT_CHOGHADIYA_CYCLE = ['Udveg', 'Shubh', 'Amrit', 'Chal', 'Rog', 'Kaal', 'Labh'];
+const NIGHT_START_CHOGHADIYA = {
+  sunday: 'Shubh', monday: 'Chal', tuesday: 'Kaal', wednesday: 'Udveg',
+  thursday: 'Amrit', friday: 'Rog', saturday: 'Labh',
+};
+
+function choghadiyaSequence(cycle, startName, count) {
+  const startIndex = cycle.indexOf(startName);
+  return Array.from({ length: count }, (_, i) => cycle[(startIndex + i) % 7]);
 }
 
 function toChoghadiyaSlot(name, window) {
@@ -90,11 +102,10 @@ function toChoghadiyaSlot(name, window) {
 }
 
 function computeChoghadiya(weekday, sunriseMin, sunsetMin, nextSunriseMin) {
-  const dayNames = choghadiyaSequence(DAY_START_CHOGHADIYA[weekday], 8);
+  const dayNames = choghadiyaSequence(CHOGHADIYA_CYCLE, DAY_START_CHOGHADIYA[weekday], 8);
   const day = dayNames.map((name, i) => toChoghadiyaSlot(name, dayPartWindow(sunriseMin, sunsetMin, i + 1, 8)));
 
-  const nightStartIndex = (CHOGHADIYA_CYCLE.indexOf(dayNames[7]) + 1) % 7;
-  const nightNames = choghadiyaSequence(CHOGHADIYA_CYCLE[nightStartIndex], 8);
+  const nightNames = choghadiyaSequence(NIGHT_CHOGHADIYA_CYCLE, NIGHT_START_CHOGHADIYA[weekday], 8);
   const night = nightNames.map((name, i) => toChoghadiyaSlot(name, dayPartWindow(sunsetMin, nextSunriseMin, i + 1, 8)));
 
   return { day, night };
