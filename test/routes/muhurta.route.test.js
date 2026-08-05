@@ -21,6 +21,18 @@ describe('GET /api/muhurta', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 400 for a calendar-invalid date', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/muhurta').query({ date: '2026-02-31', latitude: 29.588806, longitude: 80.452122 });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 when latitude is an empty string', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/muhurta').query({ date: '2026-07-27', latitude: '', longitude: 80.452122 });
+    expect(res.status).toBe(400);
+  });
+
   it('returns a DailyPeriods shape for a valid request', async () => {
     const app = createApp();
     const res = await request(app).get('/api/muhurta').query({

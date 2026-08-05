@@ -142,7 +142,14 @@ async function _computeBhadraWindowsFromKaranaLookup(karanaIndexLookup, sunriseM
 }
 
 async function computeBhadraWindows(dateStr, sunriseMin, sunsetMin, latitude, longitude, timezone) {
-  const lookup = (minuteOfDay) => karanaIndexAt(dateStr, formatMinutes(minuteOfDay), latitude, longitude, timezone);
+  const cache = new Map();
+  const lookup = (minuteOfDay) => {
+    const timeStr = formatMinutes(minuteOfDay);
+    if (!cache.has(timeStr)) {
+      cache.set(timeStr, karanaIndexAt(dateStr, timeStr, latitude, longitude, timezone));
+    }
+    return cache.get(timeStr);
+  };
   return _computeBhadraWindowsFromKaranaLookup(lookup, sunriseMin, sunsetMin);
 }
 
@@ -169,7 +176,9 @@ async function computeDailyPeriods(dateStr, latitude, longitude, timezone) {
 
   const sunriseMin = parseHHmm(sunrise);
   const sunsetMin = parseHHmm(sunset);
-  const nextSunriseMin = parseHHmm(nextSunrise) + 1440;
+  const todayMidnight = DateTime.fromISO(dateStr, { zone });
+  const dayLengthMin = todayMidnight.plus({ days: 1 }).diff(todayMidnight, 'minutes').minutes;
+  const nextSunriseMin = parseHHmm(nextSunrise) + dayLengthMin;
 
   const weekday = weekdayFromDate(dateStr, latitude, longitude, timezone);
 
