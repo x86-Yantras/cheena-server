@@ -1,10 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import * as sunTimesService from '../src/sunTimesService.js';
 import {
   parseHHmm, formatMinutes, weekdayFromDate,
   computeRahuKaal, computeYamaganda, computeGulikaKaal,
   computeAbhijitMuhurta, computeBrahmaMuhurta, computeChoghadiya,
   computeBhadraWindows, _computeBhadraWindowsFromKaranaLookup,
+  computeDailyPeriods,
 } from '../src/muhurtaCalculator.js';
+
+vi.mock('../src/sunTimesService.js', () => ({
+  computeSunriseSunset: vi.fn(),
+}));
 
 // Verified reference: Baitadi (29.588806, 80.452122), Monday 2026-07-27,
 // Asia/Kathmandu, altitude 0 -> sunrise 05:44, sunset 19:15.
@@ -185,4 +191,33 @@ describe('computeBhadraWindows — real ephemeris integration (Kathmandu, 2026-0
     // across this day at this location, never touching Vishti.
     expect(windows).toEqual([]);
   }, 30000);
+});
+
+describe('computeDailyPeriods (orchestrator)', () => {
+  it('assembles sunrise/sunset, weekday periods, and choghadiya into the DailyPeriods shape', async () => {
+    sunTimesService.computeSunriseSunset
+      .mockResolvedValueOnce({ sunrise: '05:44', sunset: '19:15' }) // 2026-07-27
+      .mockResolvedValueOnce({ sunrise: '05:44', sunset: '19:16' }); // 2026-07-28 (next day)
+
+    const result = await computeDailyPeriods('2026-07-27', 29.588806, 80.452122, 'Asia/Kathmandu');
+
+    expect(result.date).toBe('2026-07-27');
+    expect(result.weekday).toBe('monday');
+    expect(result.sunrise).toBe('05:44');
+    expect(result.sunset).toBe('19:15');
+    expect(result.dayDuration).toBe('13h 31m');
+
+    const inauspiciousNames = result.inauspicious.map((w) => w.name);
+    expect(inauspiciousNames).toEqual(expect.arrayContaining(['Rahu Kaal', 'Yamaganda', 'Gulika Kaal']));
+    const rahuKaal = result.inauspicious.find((w) => w.name === 'Rahu Kaal');
+    expect(rahuKaal.start).toBe('07:25');
+    expect(rahuKaal.end).toBe('09:07');
+
+    const auspiciousNames = result.auspicious.map((w) => w.name);
+    expect(auspiciousNames).toEqual(['Abhijit Muhurta', 'Brahma Muhurta']);
+
+    expect(result.choghadiya.day).toHaveLength(8);
+    expect(result.choghadiya.night).toHaveLength(8);
+    expect(result.choghadiya.day[0].start).toBe('05:44'); // formatted as string here, unlike the raw-minute internal shape
+  }, 30000); // real Bhadra lookup still hits the live ephemeris service for this date/location
 });

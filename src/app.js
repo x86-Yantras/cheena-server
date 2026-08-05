@@ -11,6 +11,7 @@ import meKundalisChatRouter from './routes/meKundalisChat.js';
 import meMatchesRouter from './routes/meMatches.js';
 import meProfileRouter from './routes/meProfile.js';
 import geocodeRouter from './routes/geocode.js';
+import muhurtaRouter from './routes/muhurta.js';
 
 function createApp() {
   const app = express();
@@ -33,6 +34,7 @@ function createApp() {
   app.use('/api/me/matches', meMatchesRouter);
   app.use('/api/me/profile', meProfileRouter);
   app.use('/api/geocode', geocodeRouter);
+  app.use('/api/muhurta', muhurtaRouter);
 
   app.use(errorHandlerMiddleware);
 

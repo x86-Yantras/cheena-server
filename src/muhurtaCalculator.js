@@ -2,6 +2,7 @@ import { DateTime } from 'luxon';
 import tzlookup from 'tz-lookup';
 import { getSwe, computeJulianDay, computePlanetLongitude } from './swissephService.js';
 import { computePanchang, karanaNameForIndex } from './panchangCalculator.js';
+import { computeSunriseSunset } from './sunTimesService.js';
 
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
@@ -145,9 +146,68 @@ async function computeBhadraWindows(dateStr, sunriseMin, sunsetMin, latitude, lo
   return _computeBhadraWindowsFromKaranaLookup(lookup, sunriseMin, sunsetMin);
 }
 
+function formatWindow(window) {
+  const { start, end, ...rest } = window;
+  return { ...rest, start: formatMinutes(start), end: formatMinutes(end) };
+}
+
+function formatChoghadiyaSlot(slot) {
+  const { start, end, ...rest } = slot;
+  return { ...rest, start: formatMinutes(start), end: formatMinutes(end) };
+}
+
+function formatDuration(totalMinutes) {
+  const rounded = Math.round(totalMinutes);
+  return `${Math.floor(rounded / 60)}h ${rounded % 60}m`;
+}
+
+async function computeDailyPeriods(dateStr, latitude, longitude, timezone) {
+  const zone = timezone || tzlookup(latitude, longitude);
+  const { sunrise, sunset } = await computeSunriseSunset(dateStr, latitude, longitude, timezone);
+  const nextDateStr = DateTime.fromISO(dateStr, { zone }).plus({ days: 1 }).toISODate();
+  const { sunrise: nextSunrise } = await computeSunriseSunset(nextDateStr, latitude, longitude, timezone);
+
+  const sunriseMin = parseHHmm(sunrise);
+  const sunsetMin = parseHHmm(sunset);
+  const nextSunriseMin = parseHHmm(nextSunrise) + 1440;
+
+  const weekday = weekdayFromDate(dateStr, latitude, longitude, timezone);
+
+  const bhadraWindows = await computeBhadraWindows(dateStr, sunriseMin, sunsetMin, latitude, longitude, timezone);
+
+  const inauspicious = [
+    computeRahuKaal(weekday, sunriseMin, sunsetMin),
+    computeYamaganda(weekday, sunriseMin, sunsetMin),
+    computeGulikaKaal(weekday, sunriseMin, sunsetMin),
+    ...bhadraWindows,
+  ].map(formatWindow);
+
+  const auspicious = [
+    computeAbhijitMuhurta(weekday, sunriseMin, sunsetMin),
+    computeBrahmaMuhurta(sunriseMin),
+  ].map(formatWindow);
+
+  const { day, night } = computeChoghadiya(weekday, sunriseMin, sunsetMin, nextSunriseMin);
+
+  return {
+    date: dateStr,
+    weekday,
+    sunrise,
+    sunset,
+    dayDuration: formatDuration(sunsetMin - sunriseMin),
+    inauspicious,
+    auspicious,
+    choghadiya: {
+      day: day.map(formatChoghadiyaSlot),
+      night: night.map(formatChoghadiyaSlot),
+    },
+  };
+}
+
 export {
   parseHHmm, formatMinutes, weekdayFromDate, dayPartWindow,
   computeRahuKaal, computeYamaganda, computeGulikaKaal,
   computeAbhijitMuhurta, computeBrahmaMuhurta, computeChoghadiya,
   computeBhadraWindows, _computeBhadraWindowsFromKaranaLookup,
+  computeDailyPeriods,
 };
