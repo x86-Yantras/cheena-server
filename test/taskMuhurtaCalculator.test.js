@@ -194,6 +194,11 @@ describe('isCombust', () => {
     expect(isCombust(10, 0, -0.1, 'JUPITER')).toBe(true);
     expect(isCombust(11, 0, -0.1, 'JUPITER')).toBe(false);
   });
+
+  it('throws for an unrecognized planet instead of silently applying an orb', () => {
+    expect(() => isCombust(5, 0, 0.1, 'MARS')).toThrow(/unsupported planet/i);
+    expect(() => isCombust(5, 0, 0.1, 'venus')).toThrow(/unsupported planet/i);
+  });
 });
 
 describe('TASK_RULES griha-pravesh', () => {

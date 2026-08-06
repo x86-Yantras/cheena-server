@@ -106,6 +106,21 @@ describe('swissephService (HTTP client)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('computePlanetLongitude throws when called before computeJulianDay for that jd', async () => {
+    await expect(computePlanetLongitude(9999999.0, 'SUN')).rejects.toThrow(/no cached ephemeris response/i);
+  });
+
+  it('computePlanetLongitude returns undefined (not throw) when computeJulianDay succeeded but the response lacked planetLongitudes', async () => {
+    const { planetLongitudes, ...responseWithoutPlanetLongitudes } = MOCK_RESPONSE;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => responseWithoutPlanetLongitudes,
+    });
+    const jd = await computeJulianDay('2000-01-01', '12:00', 51.5074, -0.1278, 'UTC');
+    const swe = await getSwe();
+    await expect(computePlanetLongitude(jd, swe.SE_SUN)).resolves.toBeUndefined();
+  });
+
   it('computePlanetSpeed throws when called before computeJulianDay for that jd', async () => {
     await expect(computePlanetSpeed(9999999.0, 'JUPITER')).rejects.toThrow(/no cached ephemeris response/i);
   });

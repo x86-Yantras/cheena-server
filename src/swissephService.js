@@ -97,11 +97,13 @@ async function computeAscendantLongitude(jd, latitude, longitude) {
 }
 
 async function computePlanetLongitude(jd, sweConst) {
-  const cached = planetLongitudesCache.get(jd);
-  if (!cached) {
+  if (!planetLongitudesCache.has(jd)) {
     throw new Error(`No cached ephemeris response for julian day ${jd}. computeJulianDay must be called first.`);
   }
-  return cached[sweConst];
+  // The key can be present with value `undefined` when computeJulianDay was
+  // called but the cached ephemeris response never included planetLongitudes
+  // (e.g. a malformed upstream response). That's distinct from the error above.
+  return planetLongitudesCache.get(jd)?.[sweConst];
 }
 
 async function computePlanetSpeed(jd, sweConst) {

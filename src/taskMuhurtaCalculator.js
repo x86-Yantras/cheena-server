@@ -14,8 +14,17 @@ function angularSeparation(a, b) {
   return diff > 180 ? 360 - diff : diff;
 }
 
+const COMBUSTION_ORBS = {
+  VENUS: { direct: 10, retrograde: 8 },
+  JUPITER: { direct: 11, retrograde: 11 },
+};
+
 function isCombust(planetLongitude, sunLongitude, speed, planet) {
-  const orb = planet === 'VENUS' ? (speed < 0 ? 8 : 10) : 11; // JUPITER
+  const orbs = COMBUSTION_ORBS[planet];
+  if (!orbs) {
+    throw new Error(`isCombust: unsupported planet "${planet}"`);
+  }
+  const orb = speed < 0 ? orbs.retrograde : orbs.direct;
   return angularSeparation(planetLongitude, sunLongitude) < orb;
 }
 
