@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as sunTimesService from '../src/sunTimesService.js';
-import { TASK_RULES, scoreDay, computeDailyScore, computeTaskMuhurta } from '../src/taskMuhurtaCalculator.js';
+import { TASK_RULES, scoreDay, computeDailyScore, computeTaskMuhurta, angularSeparation, isCombust } from '../src/taskMuhurtaCalculator.js';
 
 function snapshot({ tithiIndex, tithiName, yogaName, karanaName, nakshatraName, pada, weekday }) {
   return {
@@ -140,4 +140,102 @@ describe('computeTaskMuhurta (orchestrator)', () => {
     expect(aug11.score).toBe(20);
     expect(result.windows[0]).toEqual(aug17); // the 100-score day should sort first
   }, 60000);
+});
+
+describe('angularSeparation', () => {
+  it('returns the shortest arc, handling the 360/0 wrap', () => {
+    expect(angularSeparation(359, 2)).toBeCloseTo(3, 5);
+    expect(angularSeparation(2, 359)).toBeCloseTo(3, 5);
+  });
+
+  it('returns 0 for identical longitudes', () => {
+    expect(angularSeparation(100, 100)).toBe(0);
+  });
+
+  it('returns the direct difference when under 180 degrees', () => {
+    expect(angularSeparation(10, 40)).toBeCloseTo(30, 5);
+  });
+});
+
+describe('isCombust', () => {
+  it('Venus direct: 9 degrees separation is combust (orb 10)', () => {
+    expect(isCombust(9, 0, 1.2, 'VENUS')).toBe(true);
+  });
+
+  it('Venus direct: exactly 10 degrees separation is NOT combust (boundary exclusive)', () => {
+    expect(isCombust(10, 0, 1.2, 'VENUS')).toBe(false);
+  });
+
+  it('Venus direct: 11 degrees separation is not combust', () => {
+    expect(isCombust(11, 0, 1.2, 'VENUS')).toBe(false);
+  });
+
+  it('Venus retrograde: 7 degrees separation is combust (orb 8)', () => {
+    expect(isCombust(7, 0, -0.5, 'VENUS')).toBe(true);
+  });
+
+  it('Venus retrograde: exactly 8 degrees separation is NOT combust', () => {
+    expect(isCombust(8, 0, -0.5, 'VENUS')).toBe(false);
+  });
+
+  it('Jupiter: 10 degrees separation is combust (orb 11, any speed)', () => {
+    expect(isCombust(10, 0, 0.1, 'JUPITER')).toBe(true);
+  });
+
+  it('Jupiter: exactly 11 degrees separation is NOT combust', () => {
+    expect(isCombust(11, 0, 0.1, 'JUPITER')).toBe(false);
+  });
+
+  it('Jupiter: 12 degrees separation is not combust', () => {
+    expect(isCombust(12, 0, 0.1, 'JUPITER')).toBe(false);
+  });
+
+  it('Jupiter retrograde uses the same 11 degree orb as direct (no retrograde-specific value)', () => {
+    expect(isCombust(10, 0, -0.1, 'JUPITER')).toBe(true);
+    expect(isCombust(11, 0, -0.1, 'JUPITER')).toBe(false);
+  });
+});
+
+describe('TASK_RULES griha-pravesh', () => {
+  it('has requiresCombustionCheck: true, unlike the other 3 task types', () => {
+    expect(TASK_RULES['griha-pravesh'].requiresCombustionCheck).toBe(true);
+    expect(TASK_RULES.marriage.requiresCombustionCheck).toBeUndefined();
+    expect(TASK_RULES.business.requiresCombustionCheck).toBeUndefined();
+    expect(TASK_RULES.travel.requiresCombustionCheck).toBeUndefined();
+  });
+
+  it('includes the researched nakshatra and weekday lists', () => {
+    expect(TASK_RULES['griha-pravesh'].nakshatras).toContain('Rohini');
+    expect(TASK_RULES['griha-pravesh'].nakshatras).toContain('Chitra');
+    expect(TASK_RULES['griha-pravesh'].weekdays).not.toContain('tuesday');
+  });
+});
+
+describe('scoreDay with requiresCombustionCheck', () => {
+  const baseSnapshot = {
+    tithi: { tithiIndex: 4, tithiName: 'Panchami' },
+    yoga: { yogaName: 'Shubha' },
+    karana: { karanaName: 'Balava' },
+    nakshatra: { nakshatraName: 'Rohini', pada: 1 },
+    weekday: 'monday',
+  };
+
+  it('adds a Combustion check for griha-pravesh when neither planet is combust (score 100, 6 of 6 pass)', () => {
+    const result = scoreDay({ ...baseSnapshot, venusCombust: false, jupiterCombust: false }, TASK_RULES['griha-pravesh']);
+    expect(result.score).toBe(100);
+    expect(result.checks.find((c) => c.name === 'Combustion').pass).toBe(true);
+  });
+
+  it('fails the Combustion check for griha-pravesh when Jupiter is combust (score 83, 5 of 6 pass)', () => {
+    const result = scoreDay({ ...baseSnapshot, venusCombust: false, jupiterCombust: true }, TASK_RULES['griha-pravesh']);
+    expect(result.score).toBe(83);
+    expect(result.checks.find((c) => c.name === 'Combustion').pass).toBe(false);
+    expect(result.warnings.some((w) => /jupiter/i.test(w))).toBe(true);
+  });
+
+  it('does NOT add a Combustion check for marriage, even when combustion fields are present in the snapshot', () => {
+    const result = scoreDay({ ...baseSnapshot, venusCombust: true, jupiterCombust: true }, TASK_RULES.marriage);
+    expect(result.checks.find((c) => c.name === 'Combustion')).toBeUndefined();
+    expect(result.checks).toHaveLength(5);
+  });
 });

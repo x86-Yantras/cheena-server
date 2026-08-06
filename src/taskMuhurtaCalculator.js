@@ -9,6 +9,16 @@ import { weekdayFromDate } from './muhurtaCalculator.js';
 const RIKTA_TITHI_INDICES = [3, 8, 13]; // 0-based tithiInPaksha (tithiIndex % 15): Chaturthi, Navami, Chaturdashi
 const AVOID_YOGA_NAMES = ['Vyatipata', 'Vaidhriti'];
 
+function angularSeparation(a, b) {
+  const diff = Math.abs(a - b) % 360;
+  return diff > 180 ? 360 - diff : diff;
+}
+
+function isCombust(planetLongitude, sunLongitude, speed, planet) {
+  const orb = planet === 'VENUS' ? (speed < 0 ? 8 : 10) : 11; // JUPITER
+  return angularSeparation(planetLongitude, sunLongitude) < orb;
+}
+
 const TASK_RULES = {
   marriage: {
     nakshatras: ['Rohini', 'Mrigashira', 'Magha', 'Uttara Phalguni', 'Hasta', 'Swati', 'Anuradha', 'Mula', 'Uttara Ashadha', 'Uttara Bhadrapada', 'Revati'],
@@ -25,9 +35,15 @@ const TASK_RULES = {
     padaExclusions: {},
     weekdays: ['monday', 'wednesday', 'thursday', 'friday'],
   },
+  'griha-pravesh': {
+    nakshatras: ['Rohini', 'Mrigashira', 'Pushya', 'Uttara Phalguni', 'Hasta', 'Chitra', 'Anuradha', 'Uttara Ashadha', 'Uttara Bhadrapada', 'Revati'],
+    padaExclusions: {},
+    weekdays: ['monday', 'wednesday', 'thursday', 'friday'],
+    requiresCombustionCheck: true,
+  },
 };
 
-function scoreDay({ tithi, yoga, karana, nakshatra, weekday }, taskRules) {
+function scoreDay({ tithi, yoga, karana, nakshatra, weekday, venusCombust, jupiterCombust }, taskRules) {
   const checks = [
     {
       name: 'Tithi',
@@ -61,6 +77,15 @@ function scoreDay({ tithi, yoga, karana, nakshatra, weekday }, taskRules) {
       failReason: `${weekday} is not an ideal weekday`,
     },
   ];
+
+  if (taskRules.requiresCombustionCheck) {
+    checks.push({
+      name: 'Combustion',
+      pass: !venusCombust && !jupiterCombust,
+      passReason: 'Neither Venus nor Jupiter is combust',
+      failReason: `${venusCombust ? 'Venus' : ''}${venusCombust && jupiterCombust ? ' and ' : ''}${jupiterCombust ? 'Jupiter' : ''} combust (Tara Asta) — avoid for Griha Pravesh`,
+    });
+  }
 
   const passed = checks.filter((c) => c.pass);
   const failed = checks.filter((c) => !c.pass);
@@ -123,4 +148,4 @@ async function computeTaskMuhurta(task, fromDateStr, toDateStr, latitude, longit
   };
 }
 
-export { TASK_RULES, scoreDay, snapshotPanchangaAtSunrise, computeDailyScore, computeTaskMuhurta };
+export { TASK_RULES, scoreDay, snapshotPanchangaAtSunrise, computeDailyScore, computeTaskMuhurta, angularSeparation, isCombust };
