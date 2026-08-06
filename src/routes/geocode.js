@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { reverseGeocode } from '../geocodeService.js';
+import { reverseGeocode, searchPlaces } from '../geocodeService.js';
 
 const router = Router();
 
@@ -18,6 +18,17 @@ router.get('/reverse', async (req, res) => {
 
   const placeName = await reverseGeocode(latitude, longitude);
   res.json({ placeName });
+});
+
+router.get('/search', async (req, res) => {
+  const query = req.query.q;
+  if (!query || typeof query !== 'string' || query.trim().length < 3) {
+    res.status(400).json({ error: 'q must be a string of at least 3 characters' });
+    return;
+  }
+
+  const results = await searchPlaces(query.trim());
+  res.json({ results });
 });
 
 export default router;

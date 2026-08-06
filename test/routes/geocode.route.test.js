@@ -58,3 +58,40 @@ describe('GET /api/geocode/reverse', () => {
     expect(response.body).toEqual({ placeName: null });
   });
 });
+
+describe('GET /api/geocode/search', () => {
+  beforeEach(() => {
+    process.env.NOMINATIM_BASE_URL = 'http://nominatim.test';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ([
+        { display_name: 'Kathmandu, Bagmati Province, Nepal', lat: '27.7172', lon: '85.3240' },
+      ]),
+    }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('returns 400 when q is missing', async () => {
+    const app = createApp();
+    const response = await request(app).get('/api/geocode/search');
+    expect(response.status).toBe(400);
+  });
+
+  it('returns 400 when q is shorter than 3 characters after trimming', async () => {
+    const app = createApp();
+    const response = await request(app).get('/api/geocode/search').query({ q: '  a  ' });
+    expect(response.status).toBe(400);
+  });
+
+  it('returns 200 with a results array for a valid query', async () => {
+    const app = createApp();
+    const response = await request(app).get('/api/geocode/search').query({ q: 'Kathmandu' });
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      results: [{ placeName: 'Kathmandu, Bagmati Province, Nepal', latitude: 27.7172, longitude: 85.3240 }],
+    });
+  });
+});

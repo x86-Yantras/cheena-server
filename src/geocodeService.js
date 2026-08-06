@@ -49,8 +49,40 @@ async function reverseGeocode(latitude, longitude) {
   return placeName;
 }
 
+async function searchPlaces(query) {
+  const baseUrl = process.env.NOMINATIM_BASE_URL || 'https://nominatim.openstreetmap.org';
+  let response;
+  try {
+    response = await fetch(
+      `${baseUrl}/search?format=jsonv2&limit=5&q=${encodeURIComponent(query)}`,
+      { headers: { 'User-Agent': 'kundali-app (kiran.bhatt7638@gmail.com)' } },
+    );
+  } catch {
+    return [];
+  }
+
+  if (!response.ok) return [];
+
+  let body;
+  try {
+    body = await response.json();
+  } catch {
+    return [];
+  }
+
+  if (!Array.isArray(body)) return [];
+
+  return body
+    .map((result) => ({
+      placeName: result.display_name,
+      latitude: Number(result.lat),
+      longitude: Number(result.lon),
+    }))
+    .filter((result) => result.placeName && !Number.isNaN(result.latitude) && !Number.isNaN(result.longitude));
+}
+
 function clearCache() {
   cache.clear();
 }
 
-export { reverseGeocode, clearCache };
+export { reverseGeocode, searchPlaces, clearCache };
