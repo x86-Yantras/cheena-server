@@ -87,6 +87,30 @@ const MANGAL_DOSHA_HOUSES = [1, 2, 4, 7, 8, 12];
 const MARS_OWN_RASHIS = [0, 7];
 const MARS_EXALTED_RASHI = 9;
 
+// Own-sign, exaltation, and debilitation rashis for all 7 classical grahas
+// (Rahu/Ketu own no rashi classically, so they have no entries here).
+// Rashi indices are 0=Mesha..11=Meena, matching RASHI_LORDS above. The Mars
+// entries intentionally duplicate MARS_OWN_RASHIS/MARS_EXALTED_RASHI above
+// (used for Manglik dosha cancellation) -- verified equal in tests so the
+// two independently-authored tables can never silently disagree.
+const PLANET_OWN_RASHIS = {
+  SUN: [4], MOON: [3], MARS: [0, 7], MERCURY: [2, 5],
+  JUPITER: [8, 11], VENUS: [1, 6], SATURN: [9, 10],
+};
+const PLANET_EXALTATION_RASHI = {
+  SUN: 0, MOON: 1, MARS: 9, MERCURY: 5, JUPITER: 3, VENUS: 11, SATURN: 6,
+};
+const PLANET_DEBILITATION_RASHI = {
+  SUN: 6, MOON: 7, MARS: 3, MERCURY: 11, JUPITER: 9, VENUS: 5, SATURN: 0,
+};
+
+function classifyDignity(planet, rashiIndex) {
+  if (PLANET_OWN_RASHIS[planet].includes(rashiIndex)) return 'own-sign';
+  if (rashiIndex === PLANET_EXALTATION_RASHI[planet]) return 'exalted';
+  if (rashiIndex === PLANET_DEBILITATION_RASHI[planet]) return 'debilitated';
+  return 'neutral';
+}
+
 // Dasha-sandhi (junction): within this many years of a mahadasha boundary.
 const DASHA_SANDHI_WINDOW_YEARS = 1;
 
@@ -99,5 +123,7 @@ export {
   NADI_BY_NAKSHATRA,
   PLANET_FRIENDSHIP,
   MANGAL_DOSHA_HOUSES, MARS_OWN_RASHIS, MARS_EXALTED_RASHI,
+  PLANET_OWN_RASHIS, PLANET_EXALTATION_RASHI, PLANET_DEBILITATION_RASHI,
+  classifyDignity,
   DASHA_SANDHI_WINDOW_YEARS,
 };

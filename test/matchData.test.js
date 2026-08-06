@@ -6,6 +6,8 @@ import {
   GANA_BY_NAKSHATRA, GANA_MATRIX,
   NADI_BY_NAKSHATRA, PLANET_FRIENDSHIP,
   MANGAL_DOSHA_HOUSES, MARS_OWN_RASHIS, MARS_EXALTED_RASHI,
+  PLANET_OWN_RASHIS, PLANET_EXALTATION_RASHI, PLANET_DEBILITATION_RASHI,
+  classifyDignity,
   DASHA_SANDHI_WINDOW_YEARS,
 } from '../src/matchData.js';
 
@@ -81,5 +83,68 @@ describe('matchData', () => {
 
   it('defines a positive dasha-sandhi window', () => {
     expect(DASHA_SANDHI_WINDOW_YEARS).toBeGreaterThan(0);
+  });
+});
+
+describe('planet dignity tables', () => {
+  it('the new Mars entries agree with the existing Manglik-dosha Mars tables', () => {
+    expect(PLANET_OWN_RASHIS.MARS).toEqual(MARS_OWN_RASHIS);
+    expect(PLANET_EXALTATION_RASHI.MARS).toBe(MARS_EXALTED_RASHI);
+  });
+
+  it('every rashi lord in RASHI_LORDS has an entry in all three dignity tables', () => {
+    const uniqueLords = [...new Set(RASHI_LORDS)];
+    for (const lord of uniqueLords) {
+      expect(PLANET_OWN_RASHIS[lord]).toBeDefined();
+      expect(PLANET_EXALTATION_RASHI[lord]).toBeDefined();
+      expect(PLANET_DEBILITATION_RASHI[lord]).toBeDefined();
+    }
+  });
+});
+
+describe('classifyDignity', () => {
+  it('classifies Jupiter exalted in Karka (rashi 3)', () => {
+    expect(classifyDignity('JUPITER', 3)).toBe('exalted');
+  });
+
+  it('classifies Jupiter debilitated in Makara (rashi 9)', () => {
+    expect(classifyDignity('JUPITER', 9)).toBe('debilitated');
+  });
+
+  it('classifies Jupiter own-sign in Dhanu (rashi 8) and Meena (rashi 11)', () => {
+    expect(classifyDignity('JUPITER', 8)).toBe('own-sign');
+    expect(classifyDignity('JUPITER', 11)).toBe('own-sign');
+  });
+
+  it('classifies Jupiter neutral elsewhere (e.g. rashi 0)', () => {
+    expect(classifyDignity('JUPITER', 0)).toBe('neutral');
+  });
+
+  it('classifies Venus debilitated in Kanya (rashi 5)', () => {
+    expect(classifyDignity('VENUS', 5)).toBe('debilitated');
+  });
+
+  it('classifies Venus exalted in Meena (rashi 11)', () => {
+    expect(classifyDignity('VENUS', 11)).toBe('exalted');
+  });
+
+  it('classifies Sun exalted in Mesha (rashi 0) and debilitated in Tula (rashi 6)', () => {
+    expect(classifyDignity('SUN', 0)).toBe('exalted');
+    expect(classifyDignity('SUN', 6)).toBe('debilitated');
+  });
+
+  it('classifies Saturn own-sign in Makara (rashi 9) and Kumbha (rashi 10)', () => {
+    expect(classifyDignity('SATURN', 9)).toBe('own-sign');
+    expect(classifyDignity('SATURN', 10)).toBe('own-sign');
+  });
+
+  it('classifies Mercury own-sign in Mithuna (rashi 2) and Kanya (rashi 5)', () => {
+    expect(classifyDignity('MERCURY', 2)).toBe('own-sign');
+    expect(classifyDignity('MERCURY', 5)).toBe('own-sign');
+  });
+
+  it('classifies Moon own-sign in Karka (rashi 3) and exalted in Vrishabha (rashi 1)', () => {
+    expect(classifyDignity('MOON', 3)).toBe('own-sign');
+    expect(classifyDignity('MOON', 1)).toBe('exalted');
   });
 });
