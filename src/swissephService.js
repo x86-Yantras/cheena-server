@@ -105,11 +105,14 @@ async function computePlanetLongitude(jd, sweConst) {
 }
 
 async function computePlanetSpeed(jd, sweConst) {
-  const cached = planetSpeedsCache.get(jd);
-  if (!cached) {
+  if (!planetSpeedsCache.has(jd)) {
     throw new Error(`No cached ephemeris response for julian day ${jd}. computeJulianDay must be called first.`);
   }
-  return cached[sweConst];
+  // The key can be present with value `undefined` when computeJulianDay was
+  // called but the cached ephemeris response never included planetSpeeds
+  // (e.g. backend deployed ahead of the ephemeris service). That's a real,
+  // graceful "field not available yet" case, distinct from the error above.
+  return planetSpeedsCache.get(jd)?.[sweConst];
 }
 
 async function computeBhavaMadhyas(jd, latitude, longitude) {

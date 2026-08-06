@@ -110,6 +110,17 @@ describe('swissephService (HTTP client)', () => {
     await expect(computePlanetSpeed(9999999.0, 'JUPITER')).rejects.toThrow(/no cached ephemeris response/i);
   });
 
+  it('computePlanetSpeed returns undefined (not throw) when computeJulianDay succeeded but the response lacked planetSpeeds', async () => {
+    const { planetSpeeds, ...responseWithoutPlanetSpeeds } = MOCK_RESPONSE;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => responseWithoutPlanetSpeeds,
+    });
+    const jd = await computeJulianDay('2000-01-01', '12:00', 51.5074, -0.1278, 'UTC');
+    const swe = await getSwe();
+    await expect(computePlanetSpeed(jd, swe.SE_JUPITER)).resolves.toBeUndefined();
+  });
+
   it('throws a clear error when the service responds with a non-2xx status', async () => {
     fetchMock.mockResolvedValue({
       ok: false,

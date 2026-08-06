@@ -233,6 +233,13 @@ describe('scoreDay with requiresCombustionCheck', () => {
     expect(result.warnings.some((w) => /jupiter/i.test(w))).toBe(true);
   });
 
+  it('fails the Combustion check for griha-pravesh when Venus is combust (score 83, 5 of 6 pass)', () => {
+    const result = scoreDay({ ...baseSnapshot, venusCombust: true, jupiterCombust: false }, TASK_RULES['griha-pravesh']);
+    expect(result.score).toBe(83);
+    expect(result.checks.find((c) => c.name === 'Combustion').pass).toBe(false);
+    expect(result.warnings.some((w) => /venus/i.test(w))).toBe(true);
+  });
+
   it('does NOT add a Combustion check for marriage, even when combustion fields are present in the snapshot', () => {
     const result = scoreDay({ ...baseSnapshot, venusCombust: true, jupiterCombust: true }, TASK_RULES.marriage);
     expect(result.checks.find((c) => c.name === 'Combustion')).toBeUndefined();
