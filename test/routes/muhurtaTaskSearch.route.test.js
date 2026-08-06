@@ -53,4 +53,13 @@ describe('GET /api/muhurta/task-search', () => {
     expect(res.body.windows).toHaveLength(7);
     expect(res.body.windows[0].score).toBeGreaterThanOrEqual(res.body.windows[6].score);
   }, 60000);
+
+  it('accepts griha-pravesh as a valid task', async () => {
+    const app = createApp();
+    const response = await request(app).get('/api/muhurta/task-search').query({
+      task: 'griha-pravesh', from: '2026-08-01', to: '2026-08-01', latitude: 27.7172, longitude: 85.3240, timezone: 'Asia/Kathmandu',
+    });
+    expect(response.status).toBe(200);
+    expect(response.body.windows[0].checks.some((c) => c.name === 'Combustion')).toBe(true);
+  }, 30000);
 });

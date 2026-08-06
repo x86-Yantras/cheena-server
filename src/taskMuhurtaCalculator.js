@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import tzlookup from 'tz-lookup';
 import { computeSunriseSunset } from './sunTimesService.js';
-import { getSwe, computeJulianDay, computePlanetLongitude } from './swissephService.js';
+import { getSwe, computeJulianDay, computePlanetLongitude, computePlanetSpeed } from './swissephService.js';
 import { computePanchang } from './panchangCalculator.js';
 import { nakshatraFromLongitude } from './kundaliCalculator.js';
 import { weekdayFromDate } from './muhurtaCalculator.js';
@@ -104,10 +104,16 @@ async function snapshotPanchangaAtSunrise(dateStr, latitude, longitude, timezone
   const jd = await computeJulianDay(dateStr, sunrise, latitude, longitude, timezone);
   const sunLongitude = await computePlanetLongitude(jd, swe.SE_SUN);
   const moonLongitude = await computePlanetLongitude(jd, swe.SE_MOON);
+  const venusLongitude = await computePlanetLongitude(jd, swe.SE_VENUS);
+  const jupiterLongitude = await computePlanetLongitude(jd, swe.SE_JUPITER);
+  const venusSpeed = await computePlanetSpeed(jd, swe.SE_VENUS);
+  const jupiterSpeed = await computePlanetSpeed(jd, swe.SE_JUPITER);
   const { tithi, yoga, karana } = computePanchang({ sunLongitude, moonLongitude });
   const nakshatra = nakshatraFromLongitude(moonLongitude);
   const weekday = weekdayFromDate(dateStr, latitude, longitude, timezone);
-  return { tithi, yoga, karana, nakshatra, weekday };
+  const venusCombust = isCombust(venusLongitude, sunLongitude, venusSpeed, 'VENUS');
+  const jupiterCombust = isCombust(jupiterLongitude, sunLongitude, jupiterSpeed, 'JUPITER');
+  return { tithi, yoga, karana, nakshatra, weekday, venusCombust, jupiterCombust };
 }
 
 async function computeDailyScore(dateStr, latitude, longitude, timezone, taskRules) {
@@ -144,6 +150,7 @@ async function computeTaskMuhurta(task, fromDateStr, toDateStr, latitude, longit
       score: r.score,
       reasons: r.reasons,
       warnings: r.warnings,
+      checks: r.checks,
     })),
   };
 }

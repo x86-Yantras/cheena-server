@@ -1,6 +1,6 @@
 import { DateTime, IANAZone } from 'luxon';
 
-const VALID_TASKS = ['marriage', 'business', 'travel'];
+const VALID_TASKS = ['marriage', 'business', 'travel', 'griha-pravesh'];
 const MAX_DATE_RANGE_DAYS = 60;
 
 function validateTaskMuhurtaInput(query) {

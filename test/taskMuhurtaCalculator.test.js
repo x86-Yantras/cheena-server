@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import * as sunTimesService from '../src/sunTimesService.js';
-import { TASK_RULES, scoreDay, computeDailyScore, computeTaskMuhurta, angularSeparation, isCombust } from '../src/taskMuhurtaCalculator.js';
+import { TASK_RULES, scoreDay, snapshotPanchangaAtSunrise, computeDailyScore, computeTaskMuhurta, angularSeparation, isCombust } from '../src/taskMuhurtaCalculator.js';
 
 function snapshot({ tithiIndex, tithiName, yogaName, karanaName, nakshatraName, pada, weekday }) {
   return {
@@ -238,4 +238,24 @@ describe('scoreDay with requiresCombustionCheck', () => {
     expect(result.checks.find((c) => c.name === 'Combustion')).toBeUndefined();
     expect(result.checks).toHaveLength(5);
   });
+});
+
+describe('snapshotPanchangaAtSunrise includes combustion data', () => {
+  it('includes venusCombust and jupiterCombust booleans', async () => {
+    const snapshot = await snapshotPanchangaAtSunrise('2026-08-01', 27.7172, 85.3240, 'Asia/Kathmandu');
+    expect(typeof snapshot.venusCombust).toBe('boolean');
+    expect(typeof snapshot.jupiterCombust).toBe('boolean');
+  }, 30000);
+});
+
+describe('computeDailyScore — griha-pravesh live integration (Kathmandu)', () => {
+  it('flags Jupiter combust on 2026-08-01 (verified: Jupiter ~1.83 deg from Sun, well under its 11 deg orb)', async () => {
+    const result = await computeDailyScore('2026-08-01', 27.7172, 85.3240, 'Asia/Kathmandu', TASK_RULES['griha-pravesh']);
+    expect(result.checks.find((c) => c.name === 'Combustion').pass).toBe(false);
+  }, 30000);
+
+  it('does not flag combustion on 2026-08-14 (verified: Jupiter ~11.42 deg from Sun, just over its 11 deg orb)', async () => {
+    const result = await computeDailyScore('2026-08-14', 27.7172, 85.3240, 'Asia/Kathmandu', TASK_RULES['griha-pravesh']);
+    expect(result.checks.find((c) => c.name === 'Combustion').pass).toBe(true);
+  }, 30000);
 });
