@@ -1,11 +1,13 @@
 const EPHEMERIS_FETCH_TIMEOUT_MS = 5000;
 
 async function computeSunriseSunset(dateStr, latitude, longitude, timezone) {
-  const response = await fetch(`${process.env.EPHEMERIS_SERVICE_URL}/v1/sunrise-sunset`, {
+  const baseUrl = process.env.EPHEMERIS_SERVICE_URL || 'http://localhost:3100';
+  const apiKey = process.env.EPHEMERIS_SERVICE_API_KEY || '';
+  const response = await fetch(`${baseUrl}/v1/sunrise-sunset`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-API-Key': process.env.EPHEMERIS_SERVICE_API_KEY,
+      'X-API-Key': apiKey,
     },
     body: JSON.stringify({ date: dateStr, latitude, longitude, timezone }),
     signal: AbortSignal.timeout(EPHEMERIS_FETCH_TIMEOUT_MS),

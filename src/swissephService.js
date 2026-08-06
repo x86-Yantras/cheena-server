@@ -50,11 +50,13 @@ function resolveUtc(dateStr, timeStr, latitude, longitude, timezone) {
 }
 
 async function computeJulianDay(dateStr, timeStr, latitude, longitude, timezone) {
-  const response = await fetch(`${process.env.EPHEMERIS_SERVICE_URL}/v1/ephemeris`, {
+  const baseUrl = process.env.EPHEMERIS_SERVICE_URL || 'http://localhost:3100';
+  const apiKey = process.env.EPHEMERIS_SERVICE_API_KEY || '';
+  const response = await fetch(`${baseUrl}/v1/ephemeris`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-API-Key': process.env.EPHEMERIS_SERVICE_API_KEY,
+      'X-API-Key': apiKey,
     },
     body: JSON.stringify({
       date: dateStr,
