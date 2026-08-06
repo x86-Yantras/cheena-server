@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeVimshottariDasha } from '../src/dashaCalculator.js';
+import { computeVimshottariDasha, computeTribhagiDasha } from '../src/dashaCalculator.js';
 
 const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
 
@@ -57,5 +57,65 @@ describe('computeVimshottariDasha', () => {
   it('gives pratyantardashas no further sub-periods', () => {
     const dasha = computeVimshottariDasha(moonLongitude, birthUtcMs);
     expect(dasha.mahadashas[0].subPeriods[0].subPeriods[0].subPeriods).toBeUndefined();
+  });
+});
+
+describe('computeTribhagiDasha', () => {
+  const moonLongitude = 62.909972675015986;
+  const birthUtcMs = Date.UTC(1999, 0, 1, 2, 55, 0);
+
+  it('starts with the Mars mahadasha with ~0.6574 years balance (exactly 1/3 of Vimshottari\'s)', () => {
+    const dasha = computeTribhagiDasha(moonLongitude, birthUtcMs);
+    expect(dasha.mahadashas[0].lord).toBe('MARS');
+    expect(dasha.balanceYears).toBeCloseTo(0.6574, 3);
+  });
+
+  it('lists 9 mahadashas in the same order as Vimshottari, totalling exactly 40 years', () => {
+    const dasha = computeTribhagiDasha(moonLongitude, birthUtcMs);
+    expect(dasha.mahadashas.map((m) => m.lord)).toEqual([
+      'MARS', 'RAHU', 'JUPITER', 'SATURN', 'MERCURY', 'KETU', 'VENUS', 'SUN', 'MOON',
+    ]);
+    const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+    const totalMs = Date.parse(dasha.mahadashas[8].end) - Date.parse(dasha.mahadashas[0].start);
+    expect(totalMs / YEAR_MS).toBeCloseTo(40, 6);
+  });
+
+  it('scales every mahadasha to exactly 1/3 of its Vimshottari equivalent', () => {
+    const vimshottari = computeVimshottariDasha(moonLongitude, birthUtcMs);
+    const tribhagi = computeTribhagiDasha(moonLongitude, birthUtcMs);
+    const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+    for (let i = 0; i < 9; i += 1) {
+      const vimYears = (Date.parse(vimshottari.mahadashas[i].end) - Date.parse(vimshottari.mahadashas[i].start)) / YEAR_MS;
+      const tribYears = (Date.parse(tribhagi.mahadashas[i].end) - Date.parse(tribhagi.mahadashas[i].start)) / YEAR_MS;
+      expect(tribYears).toBeCloseTo(vimYears / 3, 6);
+    }
+  });
+
+  it('nests 9 antardashas and 9 pratyantardashas (3-level depth, same as Vimshottari)', () => {
+    const dasha = computeTribhagiDasha(moonLongitude, birthUtcMs);
+    const maha = dasha.mahadashas[1]; // RAHU, 6 years
+    expect(maha.subPeriods).toHaveLength(9);
+    expect(maha.subPeriods[0].lord).toBe('RAHU');
+
+    const antar = maha.subPeriods[0];
+    const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+    const antarYears = (Date.parse(antar.end) - Date.parse(antar.start)) / YEAR_MS;
+    expect(antarYears).toBeCloseTo(0.9, 6); // 2.7 / 3
+
+    expect(antar.subPeriods).toHaveLength(9);
+    expect(antar.subPeriods[0].subPeriods).toBeUndefined();
+  });
+});
+
+describe('computeVimshottariDasha regression after computeDashaCycle refactor', () => {
+  it('produces byte-for-byte identical output to before the refactor', () => {
+    const moonLongitude = 62.909972675015986;
+    const birthUtcMs = Date.UTC(1999, 0, 1, 2, 55, 0);
+    const dasha = computeVimshottariDasha(moonLongitude, birthUtcMs);
+    expect(dasha.mahadashas[0].lord).toBe('MARS');
+    expect(dasha.balanceYears).toBeCloseTo(1.9722, 3);
+    expect(dasha.mahadashas.map((m) => m.lord)).toEqual([
+      'MARS', 'RAHU', 'JUPITER', 'SATURN', 'MERCURY', 'KETU', 'VENUS', 'SUN', 'MOON',
+    ]);
   });
 });

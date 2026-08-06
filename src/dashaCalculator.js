@@ -39,17 +39,28 @@ function buildPeriods(startLordIndex, startMs, lengthMs, depth) {
   return periods;
 }
 
-function computeVimshottariDasha(moonLongitude, birthUtcMs) {
+function computeDashaCycle(moonLongitude, birthUtcMs, totalYears, depth) {
   const nakshatraIndex = Math.floor(moonLongitude / NAKSHATRA_SPAN) % 27;
   const fractionElapsed = (moonLongitude % NAKSHATRA_SPAN) / NAKSHATRA_SPAN;
   const firstLordIndex = nakshatraIndex % 9;
-  const firstLordYears = DASHA_SEQUENCE[firstLordIndex].years;
+  const scale = totalYears / TOTAL_YEARS;
+  const firstLordYears = DASHA_SEQUENCE[firstLordIndex].years * scale;
   const cycleStartMs = birthUtcMs - fractionElapsed * firstLordYears * YEAR_MS;
 
   return {
     balanceYears: (1 - fractionElapsed) * firstLordYears,
-    mahadashas: buildPeriods(firstLordIndex, cycleStartMs, TOTAL_YEARS * YEAR_MS, 3),
+    mahadashas: buildPeriods(firstLordIndex, cycleStartMs, totalYears * YEAR_MS, depth),
   };
 }
 
-export { computeVimshottariDasha, DASHA_SEQUENCE };
+function computeVimshottariDasha(moonLongitude, birthUtcMs) {
+  return computeDashaCycle(moonLongitude, birthUtcMs, TOTAL_YEARS, 3);
+}
+
+const TRIBHAGI_TOTAL_YEARS = TOTAL_YEARS / 3;
+
+function computeTribhagiDasha(moonLongitude, birthUtcMs) {
+  return computeDashaCycle(moonLongitude, birthUtcMs, TRIBHAGI_TOTAL_YEARS, 3);
+}
+
+export { computeVimshottariDasha, computeTribhagiDasha, DASHA_SEQUENCE };
