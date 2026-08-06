@@ -104,6 +104,13 @@ const PLANET_DEBILITATION_RASHI = {
   SUN: 6, MOON: 7, MARS: 3, MERCURY: 11, JUPITER: 9, VENUS: 5, SATURN: 0,
 };
 
+// Mercury is a special case: rashi 5 (Kanya/Virgo) is both Mercury's exalted
+// sign AND one of its own signs (PLANET_OWN_RASHIS.MERCURY includes 5).
+// Own-sign is checked first (see below), so classifyDignity('MERCURY', 5)
+// always returns 'own-sign', never 'exalted' -- a known, accepted collision.
+// This does not affect pass/fail scoring (both dignities pass); it can only
+// affect tie-breaking logic that ranks dignity strength (see DIGNITY_RANK in
+// generalMuhurtaCalculator.js).
 function classifyDignity(planet, rashiIndex) {
   if (PLANET_OWN_RASHIS[planet].includes(rashiIndex)) return 'own-sign';
   if (rashiIndex === PLANET_EXALTATION_RASHI[planet]) return 'exalted';

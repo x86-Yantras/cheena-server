@@ -49,10 +49,11 @@ function scoreHoraSegment({ horaLord, lagnaLordDignity }) {
 // minute-of-day coordinate space muhurtaCalculator.js's computeDailyPeriods
 // already uses for night Choghadiya) into a { dateStr, timeStr } pair.
 function minuteOfDayToDateTime(baseDateStr, minuteOfDay, zone) {
-  const dayOffset = Math.floor(minuteOfDay / 1440);
-  const minuteWithinDay = ((minuteOfDay % 1440) + 1440) % 1440;
+  const totalMinute = Math.round(minuteOfDay);
+  const dayOffset = Math.floor(totalMinute / 1440);
+  const minuteWithinDay = ((totalMinute % 1440) + 1440) % 1440;
   const hour = Math.floor(minuteWithinDay / 60);
-  const minute = Math.round(minuteWithinDay % 60);
+  const minute = minuteWithinDay % 60;
   const date = DateTime.fromISO(baseDateStr, { zone }).plus({ days: dayOffset });
   return { dateStr: date.toISODate(), timeStr: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}` };
 }
@@ -172,5 +173,5 @@ async function computeGeneralMuhurta(fromDateStr, toDateStr, latitude, longitude
 
 export {
   HORA_LORD_SEQUENCE, WEEKDAY_STARTING_HORA_LORD, FAVORABLE_HORA_LORDS,
-  horaLordForSegment, scoreHoraSegment, computeGeneralMuhurta,
+  horaLordForSegment, scoreHoraSegment, computeGeneralMuhurta, minuteOfDayToDateTime,
 };

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HORA_LORD_SEQUENCE, WEEKDAY_STARTING_HORA_LORD, horaLordForSegment, scoreHoraSegment, computeGeneralMuhurta } from '../src/generalMuhurtaCalculator.js';
+import { HORA_LORD_SEQUENCE, WEEKDAY_STARTING_HORA_LORD, horaLordForSegment, scoreHoraSegment, computeGeneralMuhurta, minuteOfDayToDateTime } from '../src/generalMuhurtaCalculator.js';
 
 describe('horaLordForSegment', () => {
   it('segment 0 on each weekday matches that weekday\'s starting lord', () => {
@@ -72,6 +72,28 @@ describe('scoreHoraSegment', () => {
   });
 });
 
+describe('minuteOfDayToDateTime', () => {
+  it('rounds the total minute BEFORE splitting into hour/minute, avoiding invalid "HH:60" timestamps', () => {
+    // Previously the buggy code independently floored the hour and rounded the
+    // minute remainder, producing hour=16, minute=Math.round(59.583)=60 -> "16:60".
+    const result = minuteOfDayToDateTime('2026-09-11', 1019.583, 'Asia/Kathmandu');
+    expect(result.timeStr).toBe('17:00');
+    expect(result.dateStr).toBe('2026-09-11');
+  });
+
+  it('rounds up into the next day when the fractional minute pushes past 1440', () => {
+    const result = minuteOfDayToDateTime('2026-09-11', 1439.6, 'Asia/Kathmandu');
+    expect(result.dateStr).toBe('2026-09-12');
+    expect(result.timeStr).toBe('00:00');
+  });
+
+  it('handles a simple whole-number minute-of-day value', () => {
+    const result = minuteOfDayToDateTime('2026-01-01', 600, 'UTC');
+    expect(result.dateStr).toBe('2026-01-01');
+    expect(result.timeStr).toBe('10:00');
+  });
+});
+
 describe('computeGeneralMuhurta — live integration (Kathmandu)', () => {
   it('finds a score-100 window on 2026-08-01 matching the verified best segment (Venus hora, exalted Jupiter lagna lord)', async () => {
     const result = await computeGeneralMuhurta('2026-08-01', '2026-08-01', 27.7172, 85.3240, 'Asia/Kathmandu');
@@ -96,5 +118,12 @@ describe('computeGeneralMuhurta — live integration (Kathmandu)', () => {
     for (let i = 1; i < segments.length; i++) {
       expect(segments[i].start > segments[i - 1].start).toBe(true);
     }
+  }, 30000);
+
+  it('regression: 2026-09-11 (the date that reproduced the HH:60 bug live) does not throw and returns 24 segments', async () => {
+    const result = await computeGeneralMuhurta('2026-09-11', '2026-09-11', 27.7172, 85.3240, 'Asia/Kathmandu');
+    const day = result.windows[0];
+    expect(day.date).toBe('2026-09-11');
+    expect(day.horaSegments).toHaveLength(24);
   }, 30000);
 });
