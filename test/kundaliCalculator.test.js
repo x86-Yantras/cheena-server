@@ -328,4 +328,26 @@ describe('calculateKundali (real-world regression case)', () => {
     expect(result.dasha.balanceYears).toBeCloseTo(1.9722, 3);
     expect(result.dasha.mahadashas[0].subPeriods[0].subPeriods).toHaveLength(9);
   }, 20000);
+
+  it('includes the Tribhagi dasha timeline (1/3 scale of Vimshottari) starting with the Mars mahadasha', async () => {
+    const result = await calculateKundali(input);
+    expect(result.tribhagiDasha.mahadashas).toHaveLength(9);
+    expect(result.tribhagiDasha.mahadashas[0].lord).toBe('MARS');
+    expect(result.tribhagiDasha.balanceYears).toBeCloseTo(0.6574, 3);
+  }, 20000);
+
+  it('includes the Yogini dasha timeline starting with the Sankata mahadasha', async () => {
+    const result = await calculateKundali(input);
+    expect(result.yoginiDasha.mahadashas).toHaveLength(8);
+    expect(result.yoginiDasha.mahadashas[0].name).toBe('SANKATA');
+    expect(result.yoginiDasha.mahadashas[0].lord).toBe('RAHU');
+    expect(result.yoginiDasha.balanceYears).toBeCloseTo(2.254, 3);
+  }, 20000);
+
+  it('leaves the existing Vimshottari dasha field completely unaffected by the new fields', async () => {
+    const result = await calculateKundali(input);
+    expect(result.dasha.mahadashas).toHaveLength(9);
+    expect(result.dasha.mahadashas[0].lord).toBe('MARS');
+    expect(result.dasha.balanceYears).toBeCloseTo(1.9722, 3);
+  }, 20000);
 });
