@@ -21,6 +21,7 @@ const EPHEMERIS_FETCH_TIMEOUT_MS = 5000;
 // requests for the same instant but different locations clobber each
 // other's ascendant. Cache the two independently, keyed accordingly.
 const planetLongitudesCache = new Map(); // jd -> planetLongitudes
+const planetSpeedsCache = new Map(); // jd -> planetSpeeds
 const ascendantCache = new Map(); // `${jd}|${latitude}|${longitude}` -> ascendantLongitude
 const bhavaMadhyasCache = new Map(); // `${jd}|${latitude}|${longitude}` -> bhavaMadhyas[]
 
@@ -73,9 +74,11 @@ async function computeJulianDay(dateStr, timeStr, latitude, longitude, timezone)
   if (!response.ok) {
     throw new Error(body.error || `Ephemeris service returned ${response.status}`);
   }
-  const { julianDay, ascendantLongitude, planetLongitudes, bhavaMadhyas } = body;
+  const { julianDay, ascendantLongitude, planetLongitudes, planetSpeeds, bhavaMadhyas } = body;
   planetLongitudesCache.set(julianDay, planetLongitudes);
   scheduleEviction(planetLongitudesCache, julianDay);
+  planetSpeedsCache.set(julianDay, planetSpeeds);
+  scheduleEviction(planetSpeedsCache, julianDay);
   const ascKey = ascendantCacheKey(julianDay, latitude, longitude);
   ascendantCache.set(ascKey, ascendantLongitude);
   scheduleEviction(ascendantCache, ascKey);
@@ -101,6 +104,14 @@ async function computePlanetLongitude(jd, sweConst) {
   return cached[sweConst];
 }
 
+async function computePlanetSpeed(jd, sweConst) {
+  const cached = planetSpeedsCache.get(jd);
+  if (!cached) {
+    throw new Error(`No cached ephemeris response for julian day ${jd}. computeJulianDay must be called first.`);
+  }
+  return cached[sweConst];
+}
+
 async function computeBhavaMadhyas(jd, latitude, longitude) {
   const key = ascendantCacheKey(jd, latitude, longitude);
   if (!bhavaMadhyasCache.has(key)) {
@@ -113,4 +124,4 @@ async function computeBhavaMadhyas(jd, latitude, longitude) {
   return bhavaMadhyasCache.get(key);
 }
 
-export { getSwe, resolveUtc, computeJulianDay, computeAscendantLongitude, computePlanetLongitude, computeBhavaMadhyas };
+export { getSwe, resolveUtc, computeJulianDay, computeAscendantLongitude, computePlanetLongitude, computePlanetSpeed, computeBhavaMadhyas };

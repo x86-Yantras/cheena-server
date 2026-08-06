@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getSwe, resolveUtc, computeJulianDay, computeAscendantLongitude, computePlanetLongitude, computeBhavaMadhyas } from '../src/swissephService.js';
+import { getSwe, resolveUtc, computeJulianDay, computeAscendantLongitude, computePlanetLongitude, computePlanetSpeed, computeBhavaMadhyas } from '../src/swissephService.js';
 
 const MOCK_RESPONSE = {
   julianDay: 2451545.0,
@@ -7,6 +7,10 @@ const MOCK_RESPONSE = {
   planetLongitudes: {
     SUN: 10.1, MOON: 20.2, MARS: 30.3, MERCURY: 40.4,
     JUPITER: 50.5, VENUS: 60.6, SATURN: 70.7, RAHU: 80.8,
+  },
+  planetSpeeds: {
+    SUN: 0.98, MOON: 13.2, MARS: 0.5, MERCURY: 1.1,
+    JUPITER: -0.13, VENUS: 1.26, SATURN: 0.03, RAHU: -0.05,
   },
   bhavaMadhyas: [5, 35, 65, 95, 125, 155, 185, 215, 245, 275, 305, 335],
 };
@@ -90,6 +94,20 @@ describe('swissephService (HTTP client)', () => {
     expect(sunLongitude).toBe(10.1);
     expect(rahuLongitude).toBe(80.8);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('computePlanetSpeed reuses the cached response and maps swe constant names to values', async () => {
+    const jd = await computeJulianDay('2000-01-01', '12:00', 51.5074, -0.1278, 'UTC');
+    const swe = await getSwe();
+    const jupiterSpeed = await computePlanetSpeed(jd, swe.SE_JUPITER);
+    const venusSpeed = await computePlanetSpeed(jd, swe.SE_VENUS);
+    expect(jupiterSpeed).toBe(-0.13);
+    expect(venusSpeed).toBe(1.26);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('computePlanetSpeed throws when called before computeJulianDay for that jd', async () => {
+    await expect(computePlanetSpeed(9999999.0, 'JUPITER')).rejects.toThrow(/no cached ephemeris response/i);
   });
 
   it('throws a clear error when the service responds with a non-2xx status', async () => {
