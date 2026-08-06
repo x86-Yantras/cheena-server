@@ -64,4 +64,8 @@ describe('validateTaskMuhurtaInput', () => {
   it('accepts a query with no timezone (optional field)', () => {
     expect(validateTaskMuhurtaInput(validQuery)).toEqual([]);
   });
+
+  it('accepts general as a valid task', () => {
+    expect(validateTaskMuhurtaInput({ ...validQuery, task: 'general' })).toEqual([]);
+  });
 });

@@ -62,4 +62,16 @@ describe('GET /api/muhurta/task-search', () => {
     expect(response.status).toBe(200);
     expect(response.body.windows[0].checks.some((c) => c.name === 'Combustion')).toBe(true);
   }, 30000);
+
+  it('dispatches to computeGeneralMuhurta and returns the nested Hora-segment shape for task=general', async () => {
+    const app = createApp();
+    const res = await request(app).get('/api/muhurta/task-search').query({
+      task: 'general', from: '2026-08-01', to: '2026-08-01', latitude: 27.7172, longitude: 85.3240, timezone: 'Asia/Kathmandu',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.task).toBe('general');
+    const day = res.body.windows[0];
+    expect(day.horaSegments).toHaveLength(24);
+    expect(day.bestWindow).toBeDefined();
+  }, 30000);
 });

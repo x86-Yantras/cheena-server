@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { HORA_LORD_SEQUENCE, WEEKDAY_STARTING_HORA_LORD, horaLordForSegment, scoreHoraSegment } from '../src/generalMuhurtaCalculator.js';
+import { HORA_LORD_SEQUENCE, WEEKDAY_STARTING_HORA_LORD, horaLordForSegment, scoreHoraSegment, computeGeneralMuhurta } from '../src/generalMuhurtaCalculator.js';
 
 describe('horaLordForSegment', () => {
   it('segment 0 on each weekday matches that weekday\'s starting lord', () => {
@@ -70,4 +70,31 @@ describe('scoreHoraSegment', () => {
     const result = scoreHoraSegment({ horaLord: 'MOON', lagnaLordDignity: 'neutral' });
     expect(result.score).toBe(100);
   });
+});
+
+describe('computeGeneralMuhurta — live integration (Kathmandu)', () => {
+  it('finds a score-100 window on 2026-08-01 matching the verified best segment (Venus hora, exalted Jupiter lagna lord)', async () => {
+    const result = await computeGeneralMuhurta('2026-08-01', '2026-08-01', 27.7172, 85.3240, 'Asia/Kathmandu');
+    expect(result.task).toBe('general');
+    const day = result.windows[0];
+    expect(day.date).toBe('2026-08-01');
+    expect(day.score).toBe(100);
+    expect(day.bestWindow.planetLord).toBe('VENUS');
+    expect(day.horaSegments).toHaveLength(24);
+  }, 30000);
+
+  it('the day\'s segment 7 scores 0 (Saturn hora, debilitated Venus lagna lord), verified independently', async () => {
+    const result = await computeGeneralMuhurta('2026-08-01', '2026-08-01', 27.7172, 85.3240, 'Asia/Kathmandu');
+    const day = result.windows[0];
+    expect(day.horaSegments[7].planetLord).toBe('SATURN');
+    expect(day.horaSegments[7].score).toBe(0);
+  }, 30000);
+
+  it('horaSegments stays chronological (start times strictly increasing)', async () => {
+    const result = await computeGeneralMuhurta('2026-08-01', '2026-08-01', 27.7172, 85.3240, 'Asia/Kathmandu');
+    const segments = result.windows[0].horaSegments;
+    for (let i = 1; i < segments.length; i++) {
+      expect(segments[i].start > segments[i - 1].start).toBe(true);
+    }
+  }, 30000);
 });
