@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeVimshottariDasha, computeTribhagiDasha } from '../src/dashaCalculator.js';
+import { computeVimshottariDasha, computeTribhagiDasha, computeYoginiDasha } from '../src/dashaCalculator.js';
 
 const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
 
@@ -117,5 +117,63 @@ describe('computeVimshottariDasha regression after computeDashaCycle refactor', 
     expect(dasha.mahadashas.map((m) => m.lord)).toEqual([
       'MARS', 'RAHU', 'JUPITER', 'SATURN', 'MERCURY', 'KETU', 'VENUS', 'SUN', 'MOON',
     ]);
+  });
+});
+
+describe('computeYoginiDasha', () => {
+  const moonLongitude = 62.909972675015986; // Mrigashira, nakshatraNumber 5
+  const birthUtcMs = Date.UTC(1999, 0, 1, 2, 55, 0);
+
+  it('starts with the Sankata mahadasha (nakshatraNumber 5: (5+3)%8=0 -> Sankata) with ~2.254 years balance', () => {
+    const dasha = computeYoginiDasha(moonLongitude, birthUtcMs);
+    expect(dasha.mahadashas[0].name).toBe('SANKATA');
+    expect(dasha.mahadashas[0].lord).toBe('RAHU');
+    expect(dasha.balanceYears).toBeCloseTo(2.254, 3);
+  });
+
+  it('lists 8 mahadashas in Yogini order starting from Sankata, totalling exactly 36 years', () => {
+    const dasha = computeYoginiDasha(moonLongitude, birthUtcMs);
+    expect(dasha.mahadashas.map((m) => m.name)).toEqual([
+      'SANKATA', 'MANGALA', 'PINGALA', 'DHANYA', 'BHRAMARI', 'BHADRIKA', 'ULKA', 'SIDDHA',
+    ]);
+    const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+    const totalMs = Date.parse(dasha.mahadashas[7].end) - Date.parse(dasha.mahadashas[0].start);
+    expect(totalMs / YEAR_MS).toBeCloseTo(36, 6);
+  });
+
+  it('gives the Sankata mahadasha (8 years) an 8-year span and its first antardasha (Sankata-in-Sankata) is proportional', () => {
+    const dasha = computeYoginiDasha(moonLongitude, birthUtcMs);
+    const maha = dasha.mahadashas[0]; // SANKATA, 8 years
+    const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+    const mahaYears = (Date.parse(maha.end) - Date.parse(maha.start)) / YEAR_MS;
+    expect(mahaYears).toBeCloseTo(8, 6);
+
+    expect(maha.subPeriods).toHaveLength(8);
+    expect(maha.subPeriods[0].name).toBe('SANKATA');
+    expect(maha.subPeriods[0].start).toBe(maha.start);
+
+    // Sankata-in-Sankata antardasha: mahaYears(8) * ownYears(8) / totalYears(36) = 1.7778 years.
+    const antar = maha.subPeriods[0];
+    const antarYears = (Date.parse(antar.end) - Date.parse(antar.start)) / YEAR_MS;
+    expect(antarYears).toBeCloseTo(1.7778, 3);
+  });
+
+  it('sums all 8 antardashas within one mahadasha to exactly that mahadasha\'s duration', () => {
+    const dasha = computeYoginiDasha(moonLongitude, birthUtcMs);
+    const maha = dasha.mahadashas[1]; // MANGALA, 1 year
+    expect(maha.subPeriods).toHaveLength(8);
+    expect(Math.abs(Date.parse(maha.subPeriods[7].end) - Date.parse(maha.end))).toBeLessThan(5);
+  });
+
+  it('gives antardashas no further sub-periods (2-level depth only)', () => {
+    const dasha = computeYoginiDasha(moonLongitude, birthUtcMs);
+    expect(dasha.mahadashas[0].subPeriods[0].subPeriods).toBeUndefined();
+  });
+
+  it('starting-Yogini formula: nakshatraNumber 6 (remainder 1) starts with Mangala', () => {
+    // Ashwini=1..Mrigashira=5..Ardra=6. Nakshatra index 5 (Ardra) has span
+    // [66.667, 80), so pick a longitude inside it: 70 degrees.
+    const dasha = computeYoginiDasha(70, birthUtcMs);
+    expect(dasha.mahadashas[0].name).toBe('MANGALA');
   });
 });

@@ -10,7 +10,19 @@ const DASHA_SEQUENCE = [
   { lord: 'MERCURY', years: 17 },
 ];
 
+const YOGINI_SEQUENCE = [
+  { name: 'MANGALA', lord: 'MOON', years: 1 },
+  { name: 'PINGALA', lord: 'SUN', years: 2 },
+  { name: 'DHANYA', lord: 'JUPITER', years: 3 },
+  { name: 'BHRAMARI', lord: 'MARS', years: 4 },
+  { name: 'BHADRIKA', lord: 'MERCURY', years: 5 },
+  { name: 'ULKA', lord: 'SATURN', years: 6 },
+  { name: 'SIDDHA', lord: 'VENUS', years: 7 },
+  { name: 'SANKATA', lord: 'RAHU', years: 8 },
+];
+
 const TOTAL_YEARS = 120;
+const YOGINI_TOTAL_YEARS = 36;
 const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
 const NAKSHATRA_SPAN = 360 / 27;
 
@@ -63,4 +75,41 @@ function computeTribhagiDasha(moonLongitude, birthUtcMs) {
   return computeDashaCycle(moonLongitude, birthUtcMs, TRIBHAGI_TOTAL_YEARS, 3);
 }
 
-export { computeVimshottariDasha, computeTribhagiDasha, DASHA_SEQUENCE };
+function buildYoginiPeriods(startIndex, startMs, lengthMs, depth) {
+  const periods = [];
+  let cursor = startMs;
+  for (let i = 0; i < 8; i += 1) {
+    const yoginiIndex = (startIndex + i) % 8;
+    const entry = YOGINI_SEQUENCE[yoginiIndex];
+    const periodLengthMs = (lengthMs * entry.years) / YOGINI_TOTAL_YEARS;
+    const period = {
+      name: entry.name,
+      lord: entry.lord,
+      start: new Date(cursor).toISOString(),
+      end: new Date(cursor + periodLengthMs).toISOString(),
+    };
+    if (depth > 1) {
+      period.subPeriods = buildYoginiPeriods(yoginiIndex, cursor, periodLengthMs, depth - 1);
+    }
+    periods.push(period);
+    cursor += periodLengthMs;
+  }
+  return periods;
+}
+
+function computeYoginiDasha(moonLongitude, birthUtcMs) {
+  const nakshatraIndex = Math.floor(moonLongitude / NAKSHATRA_SPAN) % 27;
+  const nakshatraNumber = nakshatraIndex + 1;
+  const fractionElapsed = (moonLongitude % NAKSHATRA_SPAN) / NAKSHATRA_SPAN;
+  const remainder = (nakshatraNumber + 3) % 8;
+  const firstYoginiIndex = (remainder === 0 ? 8 : remainder) - 1;
+  const firstYoginiYears = YOGINI_SEQUENCE[firstYoginiIndex].years;
+  const cycleStartMs = birthUtcMs - fractionElapsed * firstYoginiYears * YEAR_MS;
+
+  return {
+    balanceYears: (1 - fractionElapsed) * firstYoginiYears,
+    mahadashas: buildYoginiPeriods(firstYoginiIndex, cycleStartMs, YOGINI_TOTAL_YEARS * YEAR_MS, 2),
+  };
+}
+
+export { computeVimshottariDasha, computeTribhagiDasha, computeYoginiDasha, DASHA_SEQUENCE };
