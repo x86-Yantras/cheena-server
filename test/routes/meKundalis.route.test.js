@@ -219,6 +219,29 @@ describe('/api/me/kundalis', () => {
     expect(getResponse.body.result.julianDay).toBe(9999999);
   }, 20000);
 
+  it('accepts a PATCH body larger than express.json()\'s 100kb default (real dasha payloads with tribhagiDasha/yoginiDasha exceed it)', async () => {
+    const app = createApp();
+    const token = await registerAndLogin(app, 'refresh-large-payload@example.com');
+    const createResponse = await request(app)
+      .post('/api/me/kundalis')
+      .set('Authorization', `Bearer ${token}`)
+      .send(validPayload);
+    const kundaliId = createResponse.body.id;
+    const originalResult = createResponse.body.result;
+
+    // Pad well past the old 100kb default (real tribhagiDasha/yoginiDasha
+    // payloads are ~240kb combined) without depending on real dasha shapes.
+    const padding = 'x'.repeat(150000);
+    const newResult = { ...originalResult, julianDay: 9999999, _testPadding: padding };
+
+    const patchResponse = await request(app)
+      .patch(`/api/me/kundalis/${kundaliId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ label: 'Self', name: 'Aarav Sharma', result: newResult });
+    expect(patchResponse.status).toBe(200);
+    expect(patchResponse.body.result.julianDay).toBe(9999999);
+  }, 20000);
+
   it('leaves the result unchanged when patching without a result field', async () => {
     const app = createApp();
     const token = await registerAndLogin(app, 'refresh-no-result@example.com');
