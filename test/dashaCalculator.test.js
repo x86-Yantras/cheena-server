@@ -70,14 +70,31 @@ describe('computeTribhagiDasha', () => {
     expect(dasha.balanceYears).toBeCloseTo(0.6574, 3);
   });
 
-  it('lists 9 mahadashas in the same order as Vimshottari, totalling exactly 40 years', () => {
+  it('lists 9 mahadashas per cycle in the same order as Vimshottari, first cycle totalling exactly 40 years', () => {
     const dasha = computeTribhagiDasha(moonLongitude, birthUtcMs);
-    expect(dasha.mahadashas.map((m) => m.lord)).toEqual([
+    expect(dasha.mahadashas.slice(0, 9).map((m) => m.lord)).toEqual([
       'MARS', 'RAHU', 'JUPITER', 'SATURN', 'MERCURY', 'KETU', 'VENUS', 'SUN', 'MOON',
     ]);
     const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
     const totalMs = Date.parse(dasha.mahadashas[8].end) - Date.parse(dasha.mahadashas[0].start);
     expect(totalMs / YEAR_MS).toBeCloseTo(40, 6);
+  });
+
+  it('repeats the identical 9-lord cycle enough times to cover a 120-year lifespan (3 repeats of the 40-year cycle)', () => {
+    const dasha = computeTribhagiDasha(moonLongitude, birthUtcMs);
+    expect(dasha.mahadashas).toHaveLength(27);
+    // Cycle 2 and cycle 3 repeat the exact same lord order as cycle 1.
+    expect(dasha.mahadashas.slice(9, 18).map((m) => m.lord)).toEqual(
+      dasha.mahadashas.slice(0, 9).map((m) => m.lord),
+    );
+    expect(dasha.mahadashas.slice(18, 27).map((m) => m.lord)).toEqual(
+      dasha.mahadashas.slice(0, 9).map((m) => m.lord),
+    );
+    // Cycle 2 starts exactly where cycle 1 ends (no gap, no overlap).
+    expect(dasha.mahadashas[9].start).toBe(dasha.mahadashas[8].end);
+    const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+    const totalMs = Date.parse(dasha.mahadashas[26].end) - Date.parse(dasha.mahadashas[0].start);
+    expect(totalMs / YEAR_MS).toBeCloseTo(120, 6);
   });
 
   it('scales every mahadasha to exactly 1/3 of its Vimshottari equivalent', () => {
@@ -131,14 +148,26 @@ describe('computeYoginiDasha', () => {
     expect(dasha.balanceYears).toBeCloseTo(2.254, 3);
   });
 
-  it('lists 8 mahadashas in Yogini order starting from Sankata, totalling exactly 36 years', () => {
+  it('lists 8 mahadashas per cycle in Yogini order starting from Sankata, first cycle totalling exactly 36 years', () => {
     const dasha = computeYoginiDasha(moonLongitude, birthUtcMs);
-    expect(dasha.mahadashas.map((m) => m.name)).toEqual([
+    expect(dasha.mahadashas.slice(0, 8).map((m) => m.name)).toEqual([
       'SANKATA', 'MANGALA', 'PINGALA', 'DHANYA', 'BHRAMARI', 'BHADRIKA', 'ULKA', 'SIDDHA',
     ]);
     const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
     const totalMs = Date.parse(dasha.mahadashas[7].end) - Date.parse(dasha.mahadashas[0].start);
     expect(totalMs / YEAR_MS).toBeCloseTo(36, 6);
+  });
+
+  it('repeats the identical 8-deity cycle enough times to cover a 120-year lifespan (4 repeats of the 36-year cycle)', () => {
+    const dasha = computeYoginiDasha(moonLongitude, birthUtcMs);
+    expect(dasha.mahadashas).toHaveLength(32);
+    expect(dasha.mahadashas.slice(8, 16).map((m) => m.name)).toEqual(
+      dasha.mahadashas.slice(0, 8).map((m) => m.name),
+    );
+    expect(dasha.mahadashas[8].start).toBe(dasha.mahadashas[7].end);
+    const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
+    const totalMs = Date.parse(dasha.mahadashas[31].end) - Date.parse(dasha.mahadashas[0].start);
+    expect(totalMs / YEAR_MS).toBeCloseTo(144, 6);
   });
 
   it('gives the Sankata mahadasha (8 years) an 8-year span and its first antardasha (Sankata-in-Sankata) is proportional', () => {

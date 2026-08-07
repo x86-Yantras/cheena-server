@@ -25,6 +25,14 @@ const TOTAL_YEARS = 120;
 const YOGINI_TOTAL_YEARS = 36;
 const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
 const NAKSHATRA_SPAN = 360 / 27;
+// Shorter-cycle systems (Tribhagi 40yr, Yogini 36yr) complete and would
+// otherwise leave no "current" period for anyone older than one cycle --
+// unlike Vimshottari's own 120-year cycle, which no living person outlives.
+// Repeating the identical cycle (same lord order/durations) back-to-back is
+// astrologically correct: after 9 (or 8) periods the sequence is back at its
+// starting lord by construction, so cycle N+1 is indistinguishable from a
+// literal continuation of cycle N, not an arbitrary restart.
+const LIFESPAN_TARGET_YEARS = 120;
 
 // Sub-periods of any period follow the same sequence starting from the parent
 // lord, each sized proportionally to its lord's mahadasha years. The top level
@@ -59,9 +67,17 @@ function computeDashaCycle(moonLongitude, birthUtcMs, totalYears, depth) {
   const firstLordYears = DASHA_SEQUENCE[firstLordIndex].years * scale;
   const cycleStartMs = birthUtcMs - fractionElapsed * firstLordYears * YEAR_MS;
 
+  const repeats = Math.max(1, Math.ceil(LIFESPAN_TARGET_YEARS / totalYears));
+  const mahadashas = [];
+  let cursor = cycleStartMs;
+  for (let i = 0; i < repeats; i += 1) {
+    mahadashas.push(...buildPeriods(firstLordIndex, cursor, totalYears * YEAR_MS, depth));
+    cursor += totalYears * YEAR_MS;
+  }
+
   return {
     balanceYears: (1 - fractionElapsed) * firstLordYears,
-    mahadashas: buildPeriods(firstLordIndex, cycleStartMs, totalYears * YEAR_MS, depth),
+    mahadashas,
   };
 }
 
@@ -106,9 +122,17 @@ function computeYoginiDasha(moonLongitude, birthUtcMs) {
   const firstYoginiYears = YOGINI_SEQUENCE[firstYoginiIndex].years;
   const cycleStartMs = birthUtcMs - fractionElapsed * firstYoginiYears * YEAR_MS;
 
+  const repeats = Math.max(1, Math.ceil(LIFESPAN_TARGET_YEARS / YOGINI_TOTAL_YEARS));
+  const mahadashas = [];
+  let cursor = cycleStartMs;
+  for (let i = 0; i < repeats; i += 1) {
+    mahadashas.push(...buildYoginiPeriods(firstYoginiIndex, cursor, YOGINI_TOTAL_YEARS * YEAR_MS, 2));
+    cursor += YOGINI_TOTAL_YEARS * YEAR_MS;
+  }
+
   return {
     balanceYears: (1 - fractionElapsed) * firstYoginiYears,
-    mahadashas: buildYoginiPeriods(firstYoginiIndex, cycleStartMs, YOGINI_TOTAL_YEARS * YEAR_MS, 2),
+    mahadashas,
   };
 }
 

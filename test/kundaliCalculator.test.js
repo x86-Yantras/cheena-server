@@ -331,14 +331,14 @@ describe('calculateKundali (real-world regression case)', () => {
 
   it('includes the Tribhagi dasha timeline (1/3 scale of Vimshottari) starting with the Mars mahadasha', async () => {
     const result = await calculateKundali(input);
-    expect(result.tribhagiDasha.mahadashas).toHaveLength(9);
+    expect(result.tribhagiDasha.mahadashas).toHaveLength(27); // 3 repeats of the 9-mahadasha cycle, covering ~120 years
     expect(result.tribhagiDasha.mahadashas[0].lord).toBe('MARS');
     expect(result.tribhagiDasha.balanceYears).toBeCloseTo(0.6574, 3);
   }, 20000);
 
   it('includes the Yogini dasha timeline starting with the Sankata mahadasha', async () => {
     const result = await calculateKundali(input);
-    expect(result.yoginiDasha.mahadashas).toHaveLength(8);
+    expect(result.yoginiDasha.mahadashas).toHaveLength(32); // 4 repeats of the 8-mahadasha cycle, covering 144 years
     expect(result.yoginiDasha.mahadashas[0].name).toBe('SANKATA');
     expect(result.yoginiDasha.mahadashas[0].lord).toBe('RAHU');
     expect(result.yoginiDasha.balanceYears).toBeCloseTo(2.254, 3);
