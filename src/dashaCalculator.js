@@ -34,6 +34,26 @@ const NAKSHATRA_SPAN = 360 / 27;
 // literal continuation of cycle N, not an arbitrary restart.
 const LIFESPAN_TARGET_YEARS = 120;
 
+// The mahadasha sequence is computed from a notional cycle start that falls
+// before birth (birth minus the elapsed fraction of the first lord's period).
+// That notional start must never be shown: periods entirely before birth are
+// dropped, and the period spanning birth is clamped to start exactly at
+// birth. Applied recursively so antardashas/pratyantardashas inside the
+// clamped mahadasha are clipped the same way.
+function clipPeriodsAtBirth(periods, birthMs) {
+  const birthIso = new Date(birthMs).toISOString();
+  const filtered = periods.filter((p) => new Date(p.end).getTime() > birthMs);
+  if (filtered.length === 0) return filtered;
+  const first = filtered[0];
+  if (new Date(first.start).getTime() < birthMs) {
+    first.start = birthIso;
+    if (first.subPeriods) {
+      first.subPeriods = clipPeriodsAtBirth(first.subPeriods, birthMs);
+    }
+  }
+  return filtered;
+}
+
 // Sub-periods of any period follow the same sequence starting from the parent
 // lord, each sized proportionally to its lord's mahadasha years. The top level
 // is the same rule applied to the full 120-year cycle, so one recursive
@@ -77,7 +97,7 @@ function computeDashaCycle(moonLongitude, birthUtcMs, totalYears, depth) {
 
   return {
     balanceYears: (1 - fractionElapsed) * firstLordYears,
-    mahadashas,
+    mahadashas: clipPeriodsAtBirth(mahadashas, birthUtcMs),
   };
 }
 
@@ -132,7 +152,7 @@ function computeYoginiDasha(moonLongitude, birthUtcMs) {
 
   return {
     balanceYears: (1 - fractionElapsed) * firstYoginiYears,
-    mahadashas,
+    mahadashas: clipPeriodsAtBirth(mahadashas, birthUtcMs),
   };
 }
 
