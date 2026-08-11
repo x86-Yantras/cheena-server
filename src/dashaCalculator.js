@@ -25,7 +25,7 @@ const TOTAL_YEARS = 120;
 const YOGINI_TOTAL_YEARS = 36;
 const YEAR_MS = 365.25 * 24 * 60 * 60 * 1000;
 const NAKSHATRA_SPAN = 360 / 27;
-// Shorter-cycle systems (Tribhagi 40yr, Yogini 36yr) complete and would
+// Shorter-cycle systems (Tribhagi 80yr, Yogini 36yr) complete and would
 // otherwise leave no "current" period for anyone older than one cycle --
 // unlike Vimshottari's own 120-year cycle, which no living person outlives.
 // Repeating the identical cycle (same lord order/durations) back-to-back is
@@ -85,7 +85,7 @@ function computeVimshottariDasha(moonLongitude, birthUtcMs) {
   return computeDashaCycle(moonLongitude, birthUtcMs, TOTAL_YEARS, 3);
 }
 
-const TRIBHAGI_TOTAL_YEARS = TOTAL_YEARS / 3;
+const TRIBHAGI_TOTAL_YEARS = (TOTAL_YEARS * 2) / 3;
 
 function computeTribhagiDasha(moonLongitude, birthUtcMs) {
   return computeDashaCycle(moonLongitude, birthUtcMs, TRIBHAGI_TOTAL_YEARS, 3);
