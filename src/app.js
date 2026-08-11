@@ -19,9 +19,23 @@ function createApp() {
   
   initSentry(app);
 
+  const allowedOrigins = [
+    'https://cheena.kiranbhatt.com.np',
+    'https://kundali.kiranbhatt.com.np',
+    'http://localhost:5173',
+  ];
+
   app.use(requestIdMiddleware);
   app.use(httpLoggerMiddleware);
-  app.use(cors());
+  app.use(cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
+      }
+    },
+  }));
   app.use(express.json({ limit: '2mb' }));
 
   app.get('/api/health', (req, res) => {
