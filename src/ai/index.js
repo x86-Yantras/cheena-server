@@ -3,6 +3,7 @@ import { generate as generateAnthropic } from "./providers/anthropic.js";
 import { generate as generateOpenaiCompatible } from "./providers/openaiCompatible.js";
 import { generate as generateGemini } from "./providers/gemini.js";
 import { summarizeChart, formatChartForPrompt } from "./chartSummary.js";
+import logger from "../logger.js";
 
 const AREA_PROMPTS = {
   overview:
@@ -122,6 +123,18 @@ async function generateReading({
   if (!adapter) {
     throw new Error(`No adapter for provider format: ${providerConfig.format}`);
   }
+  logger.info(
+    {
+      area,
+      provider: providerConfig.provider,
+      model: providerConfig.model,
+      systemPromptLength: systemPrompt.length,
+      userContentLength: userContent.length,
+      systemPrompt,
+      userContent,
+    },
+    'Sending prompt to AI provider',
+  );
   return adapter({
     apiKey: providerConfig.apiKey,
     baseUrl: providerConfig.baseUrl,
@@ -177,6 +190,18 @@ async function generateChatReply({
   if (!adapter) {
     throw new Error(`No adapter for provider format: ${providerConfig.format}`);
   }
+  logger.info(
+    {
+      area: effectiveArea,
+      provider: providerConfig.provider,
+      model: providerConfig.model,
+      systemPromptLength: systemPrompt.length,
+      userContentLength: userContent.length,
+      systemPrompt,
+      userContent,
+    },
+    'Sending prompt to AI provider',
+  );
 
   const reply = await adapter({
     apiKey: providerConfig.apiKey,
